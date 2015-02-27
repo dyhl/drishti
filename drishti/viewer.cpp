@@ -2895,20 +2895,33 @@ void
 Viewer::keyPressEvent(QKeyEvent *event)
 {
   // Toggle FullScreen - hide menubar on fullscreen
-  if (event->key() == Qt::Key_Return &&
-      event->modifiers() & Qt::AltModifier)
+  if (event->key() == Qt::Key_Return)
     {
-      QWidget *mw = MainWindowUI::mainWindowUI()->menubar->parentWidget();
-      mw->setWindowState(mw->windowState() ^ Qt::WindowFullScreen);
-      if (mw->windowState() == Qt::WindowFullScreen)
-	{
-	  MainWindowUI::mainWindowUI()->menubar->hide();
-	  MainWindowUI::mainWindowUI()->statusBar->hide();
-	}
-      else
-	MainWindowUI::mainWindowUI()->menubar->show();
+      if (event->modifiers() & Qt::AltModifier)
+    {
+        QWidget *mw = MainWindowUI::mainWindowUI()->menubar->parentWidget();
+        mw->setWindowState(mw->windowState() ^ Qt::WindowFullScreen);
+        if (mw->windowState() == Qt::WindowFullScreen)
+      {
+        MainWindowUI::mainWindowUI()->menubar->hide();
+        MainWindowUI::mainWindowUI()->statusBar->hide();
+      }
+        else
+      MainWindowUI::mainWindowUI()->menubar->show();
       return;
     }
+      else
+    {
+      if (MainWindowUI::mainWindowUI()->menubar->isVisible())
+    {
+      MainWindowUI::mainWindowUI()->menubar->hide();
+    }
+      else
+    {
+      MainWindowUI::mainWindowUI()->menubar->show();
+    }
+    }
+	}
 
   if (event->key() == Qt::Key_Question)
     {
