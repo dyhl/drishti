@@ -1,6 +1,7 @@
 #ifndef CAPTIONGRABBER_H
 #define CAPTIONGRABBER_H
 
+#include <QGLViewer/mouseGrabber.h>
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
 

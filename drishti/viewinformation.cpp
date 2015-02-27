@@ -454,7 +454,7 @@ ViewInformation::save(fstream &fout)
   keyword = "rotation";
   fout.write((char*)(keyword.toAscii().data()), keyword.length()+1);  
   Vec axis;
-  float angle;
+  double angle;
   m_rotation.getAxisAngle(axis, angle);
   f[0] = axis.x;
   f[1] = axis.y;

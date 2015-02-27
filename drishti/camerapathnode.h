@@ -3,6 +3,7 @@
 
 #include <QtGui>
 #include <QObject>
+#include <QGLViewer/manipulatedFrame.h>
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
 

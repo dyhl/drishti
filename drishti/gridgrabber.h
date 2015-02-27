@@ -2,6 +2,9 @@
 #define GRIDGRABBER_H
 
 #include <QtGui>
+#include <QGLViewer/manipulatedCameraFrame.h>
+#include <QGLViewer/mouseGrabber.h>
+using namespace qglviewer;
 
 #include "gridobject.h"
 

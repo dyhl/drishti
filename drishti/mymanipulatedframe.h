@@ -1,6 +1,8 @@
 #ifndef MYMANIPULATEDFRAME_H
 #define MYMANIPULATEDFRAME_H
 
+#include <QGLViewer/manipulatedFrame.h>
+#include <QGLViewer/mouseGrabber.h>
 #include <QGLViewer/qglviewer.h>
 using namespace qglviewer;
 

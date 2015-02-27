@@ -1,6 +1,10 @@
 #ifndef SCALEBARGRABBER_H
 #define SCALEBARGRABBER_H
 
+#include <QGLViewer/manipulatedCameraFrame.h>
+#include <QGLViewer/mouseGrabber.h>
+using namespace qglviewer;
+
 #include "scalebarobject.h"
 
 class ScaleBarGrabber : public MouseGrabber, public ScaleBarObject
