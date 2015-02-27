@@ -4055,12 +4055,19 @@ DrawHiresVolume::setRenderToScreen(Vec defaultCamPos,
   m_Viewer->camera()->setFocusDistance(m_focusDistance);
   loadCameraMatrices();
 
-  if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
+  if (MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->isChecked())
     {
       if (Global::saveImageType() == Global::LeftImage)
 	glViewport(0,0, camWidth/2, camHeight);
       else
 	glViewport(camWidth/2,0, camWidth/2, camHeight);
+    }
+  else if (MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->isChecked())
+    {
+      if (Global::saveImageType() == Global::LeftImage)
+	glViewport(0, 0, camWidth, camHeight/2);
+      else
+	glViewport(0 ,camHeight/2, camWidth, camHeight/2);
     }
   else
     {
@@ -4937,12 +4944,19 @@ DrawHiresVolume::drawBackplane(Camera *defaultCam,
 
   loadCameraMatrices();
 
-  if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
+  if (MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->isChecked())
     {
       if (Global::saveImageType() == Global::LeftImage)
 	glViewport(0,0, camWidth/2, camHeight);
       else
 	glViewport(camWidth/2,0, camWidth/2, camHeight);
+    }
+  else if (MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->isChecked())
+    {
+      if (Global::saveImageType() == Global::LeftImage)
+	glViewport(0, 0, camWidth, camHeight/2);
+      else
+	glViewport(0 ,camHeight/2, camWidth, camHeight/2);
     }
   else
     {
@@ -5021,12 +5035,19 @@ DrawHiresVolume::drawBackplane(Camera *defaultCam,
 
   loadCameraMatrices();
 
-  if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
+  if (MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->isChecked())
     {
       if (Global::saveImageType() == Global::LeftImage)
 	glViewport(0,0, camWidth/2, camHeight);
       else
 	glViewport(camWidth/2,0, camWidth/2, camHeight);
+    }
+  else if (MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->isChecked())
+    {
+      if (Global::saveImageType() == Global::LeftImage)
+	glViewport(0, 0, camWidth, camHeight/2);
+      else
+	glViewport(0 ,camHeight/2, camWidth, camHeight/2);
     }
   else
     {
@@ -5543,7 +5564,8 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
 	}
       else
 	{
-	  MainWindowUI::mainWindowUI()->actionFor3DTV->setChecked(false);
+	  MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->setChecked(false);
+	  MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(true);
@@ -5560,7 +5582,8 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
 	}
       else
 	{
-	  MainWindowUI::mainWindowUI()->actionFor3DTV->setChecked(false);
+	  MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->setChecked(false);
+	  MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(true);
 	  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
@@ -5577,7 +5600,8 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
 	}
       else
 	{
-	  MainWindowUI::mainWindowUI()->actionFor3DTV->setChecked(false);
+	  MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->setChecked(false);
+	  MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(true);
 	  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
@@ -5588,13 +5612,32 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_5)
     {
-      if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
+      if (MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->isChecked())
 	{
-	  MainWindowUI::mainWindowUI()->actionFor3DTV->setChecked(false);
+	  MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->setChecked(false);
 	}
       else
 	{
-	  MainWindowUI::mainWindowUI()->actionFor3DTV->setChecked(true);
+	  MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->setChecked(true);
+	  MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->setChecked(false);
+	  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
+	  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
+	  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
+	}
+
+      return true;
+    }
+
+  if (event->key() == Qt::Key_6)
+    {
+      if (MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->isChecked())
+	{
+	  MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->setChecked(false);
+	}
+      else
+	{
+	  MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->setChecked(true);
+	  MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
 	  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
@@ -5703,13 +5746,21 @@ DrawHiresVolume::drawBackground()
   int width = m_Viewer->camera()->screenWidth();
   int height = m_Viewer->camera()->screenHeight();
 
-  if (MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
+  if (MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->isChecked())
     {
       width /= 2;
       if (Global::saveImageType() == Global::LeftImage)
 	StaticFunctions::pushOrthoView(0,0, width, height);
       else
 	StaticFunctions::pushOrthoView(width, 0, width, height);
+    }
+  else if (MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->isChecked())
+    {
+      height /= 2;
+      if (Global::saveImageType() == Global::LeftImage)
+	StaticFunctions::pushOrthoView(0,0, width, height);
+      else
+	StaticFunctions::pushOrthoView(0, height, width, height);
     }
   else
     {

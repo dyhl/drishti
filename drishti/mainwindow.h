@@ -92,7 +92,8 @@ class MainWindow : public QMainWindow
    void on_actionRedBlue_triggered();
    void on_actionRedCyan_triggered();
    void on_actionCrosseye_triggered();
-   void on_actionFor3DTV_triggered();
+   void on_actionFor3DTVSideBySide_triggered();
+   void on_actionFor3DTVTopBottom_triggered();		// added top bottom tv mode
    void on_actionStatusBar_triggered();
    void on_actionMouse_Grab_triggered();
    void on_actionSwitch_To1D_triggered();

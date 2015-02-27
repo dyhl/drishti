@@ -777,8 +777,10 @@ MainWindow::fromStringList(QStringList arguments,
 	    bj.imageMode = Enums::RedBlueImageMode;	  
 	  else if (tokens[1]=="crosseye")
 	    bj.imageMode = Enums::CrosseyeImageMode;	  
-	  else if (tokens[1]=="3dtv")
-	    bj.imageMode = Enums::ImageMode3DTV;	  
+	  else if (tokens[1]=="3dtvsidebyside" || tokens[1]=="3dtv")
+	    bj.imageMode = Enums::ImageMode3DTVSideBySide;
+	  else if (tokens[1]=="3dtvtopbottom")
+	    bj.imageMode = Enums::ImageMode3DTVTopBottom;
 	}
       else if (arg.contains("nobackgroundrender"))
 	{
@@ -910,9 +912,14 @@ MainWindow::loadProjectRunKeyframesAndExit()
 	  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(true);
 	  m_Viewer->setImageMode(Enums::MonoImageMode);
 	}
-      else if (bj.imageMode == Enums::ImageMode3DTV)
+      else if (bj.imageMode == Enums::ImageMode3DTVSideBySide)
 	{
-	  MainWindowUI::mainWindowUI()->actionFor3DTV->setChecked(true);
+	  MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->setChecked(true);
+	  m_Viewer->setImageMode(Enums::MonoImageMode);
+	}
+      else if (bj.imageMode == Enums::ImageMode3DTVTopBottom)
+	{
+	  MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->setChecked(true);
 	  m_Viewer->setImageMode(Enums::MonoImageMode);
 	}
       else
@@ -4645,7 +4652,8 @@ MainWindow::on_actionOrthographic_triggered()
 void
 MainWindow::on_actionRedBlue_triggered()
 {
-  MainWindowUI::mainWindowUI()->actionFor3DTV->setChecked(false);
+  MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->setChecked(false);
+  MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->setChecked(false);
   MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
   MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
 
@@ -4655,7 +4663,8 @@ MainWindow::on_actionRedBlue_triggered()
 void
 MainWindow::on_actionRedCyan_triggered()
 {
-  MainWindowUI::mainWindowUI()->actionFor3DTV->setChecked(false);
+  MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->setChecked(false);
+  MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->setChecked(false);
   MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
   MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
 
@@ -4665,7 +4674,8 @@ MainWindow::on_actionRedCyan_triggered()
 void
 MainWindow::on_actionCrosseye_triggered()
 {
-  MainWindowUI::mainWindowUI()->actionFor3DTV->setChecked(false);
+  MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->setChecked(false);
+  MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->setChecked(false);
   MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
   MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
 
@@ -4673,8 +4683,20 @@ MainWindow::on_actionCrosseye_triggered()
 }
 
 void
-MainWindow::on_actionFor3DTV_triggered()
+MainWindow::on_actionFor3DTVSideBySide_triggered()
 {
+  MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->setChecked(false);
+  MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
+  MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
+  MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
+
+  m_Viewer->updateGL();
+}
+
+void
+MainWindow::on_actionFor3DTVTopBottom_triggered()
+{
+  MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->setChecked(false);
   MainWindowUI::mainWindowUI()->actionCrosseye->setChecked(false);
   MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
   MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);

@@ -1500,10 +1500,12 @@ Viewer::renderVolume(int imagequality)
       if (! MainWindowUI::mainWindowUI()->actionRedBlue->isChecked() &&
 	  ! MainWindowUI::mainWindowUI()->actionRedCyan->isChecked() &&
 	  ! MainWindowUI::mainWindowUI()->actionCrosseye->isChecked() &&
-	  ! MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
+	  ! MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->isChecked() &&
+	  ! MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->isChecked())
 	drawInHires(imagequality);
       else if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked() ||
-	       MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
+	       MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->isChecked() ||
+	       MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->isChecked())
 	{
 	  int sit = Global::saveImageType();
 	  
@@ -1512,11 +1514,16 @@ Viewer::renderVolume(int imagequality)
 
 	  if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked())
 	    camera()->setScreenWidthAndHeight(camW/2,camH);
+	  else if (MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->isChecked())
+	    camera()->setScreenWidthAndHeight(camW,camH/2);
 	  else
 	    camera()->setScreenWidthAndHeight(camW,camH);
 	  camera()->loadProjectionMatrixStereo(false);
 	  camera()->loadModelViewMatrixStereo(false);
-	  glViewport(0,0, camW/2, camH);
+	  if (MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->isChecked())
+	    glViewport(0,0, camW, camH/2);
+	  else
+	    glViewport(0,0, camW/2, camH);
 	  if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked())
 	    Global::setSaveImageType(Global::RightImage);
 	  else
@@ -1526,11 +1533,16 @@ Viewer::renderVolume(int imagequality)
 
 	  if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked())
 	    camera()->setScreenWidthAndHeight(camW/2,camH);
+	  else if (MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->isChecked())
+	    camera()->setScreenWidthAndHeight(camW,camH/2);
 	  else
 	    camera()->setScreenWidthAndHeight(camW,camH);
-	  camera()->loadProjectionMatrixStereo(true);
-	  camera()->loadModelViewMatrixStereo(true);
-	  glViewport(camW/2,0, camW/2, camH);
+	  camera()->loadProjectionMatrixStereo(false);
+	  camera()->loadModelViewMatrixStereo(false);
+	  if (MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->isChecked())
+	    glViewport(0,camH/2, camW, camH/2);
+	  else
+	    glViewport(camW/2,0, camW/2, camH);
 	  if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked())
 	    Global::setSaveImageType(Global::LeftImage);
 	  else
