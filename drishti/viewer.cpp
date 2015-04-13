@@ -2897,6 +2897,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
   // Toggle FullScreen - hide menubar on fullscreen
   if (event->key() == Qt::Key_Return)
     {
+      // ALT + Return/Enter
       if (event->modifiers() & Qt::AltModifier)
     {
         QWidget *mw = MainWindowUI::mainWindowUI()->menubar->parentWidget();
@@ -2910,15 +2911,24 @@ Viewer::keyPressEvent(QKeyEvent *event)
       MainWindowUI::mainWindowUI()->menubar->show();
       return;
     }
+      // Return/Enter
       else
     {
       if (MainWindowUI::mainWindowUI()->menubar->isVisible())
     {
       MainWindowUI::mainWindowUI()->menubar->hide();
+      MainWindowUI::mainWindowUI()->statusBar->hide();
+      Global::setBottomText(false);
+      MainWindowUI::mainWindowUI()->actionBottom_Text->setChecked(false);
+      updateGL();
     }
       else
     {
       MainWindowUI::mainWindowUI()->menubar->show();
+      MainWindowUI::mainWindowUI()->statusBar->show();
+      Global::setBottomText(true);
+      MainWindowUI::mainWindowUI()->actionBottom_Text->setChecked(true);
+      updateGL();
     }
     }
 	}
