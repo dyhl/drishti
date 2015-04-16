@@ -469,6 +469,8 @@ Viewer::Viewer(QWidget *parent) :
   connect(&m_autoUpdateTimer, SIGNAL(timeout()),
 	  this, SLOT(updateGL()));
 
+  m_autoUpdateTimer.start(16.6667);
+
   camera()->setIODistance(0.06f);
   camera()->setPhysicalScreenWidth(4.3f);
 
