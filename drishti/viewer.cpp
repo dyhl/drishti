@@ -2194,6 +2194,13 @@ Viewer::draw()
       return;
     }
 
+	if (vrpnEvent) {
+      fastDraw();
+	  vrpnEvent = false;
+      return;
+	}
+
+
   if (!Global::updateViewer())
     {
       if (!Global::playFrames())
@@ -4218,7 +4225,39 @@ Viewer::processCommand(QString cmd)
       Vec viewDir = camera()->viewDirection();
       camera()->setPosition(center - dist*viewDir);
     }
-  else if (list[0] == "clip")
+  else if (list[0] == "vrpn") {
+      Vec pos;
+      Quaternion rot;
+      float y=0;
+      float z=0;
+      float a=0;
+      if (list.size() > 3) {
+		  y = list[1].toFloat(&ok);
+		  z = list[2].toFloat(&ok);
+		  a = list[3].toFloat(&ok);
+	  }
+	rot = Quaternion(camera()->upVector(), DEG2RAD(a));
+
+      Quaternion orot = camera()->orientation();
+      rot = rot*orot;
+      // set camera
+      camera()->setOrientation(rot);
+	  float yPos = camera()->position()[1];
+      // now reposition the camera so that it faces the scene
+      Vec center = camera()->sceneCenter();
+      float dist = (camera()->position()-center).norm();
+      Vec viewDir = camera()->viewDirection();
+      camera()->setPosition(center - dist*viewDir);
+//       camera()->setPosition(Vec(0, yPos, 0) + center - dist*viewDir);
+//       camera()->setPosition(pos - dist*viewDir);
+
+      Vec cpos = camera()->position();
+	  pos = (y * camera()->upVector()) + (z * camera()->viewDirection());
+      pos = pos + cpos;
+      camera()->setPosition(pos);
+
+
+  } else if (list[0] == "clip")
     {
       QList<Vec> pts;
       if (GeometryObjects::hitpoints()->activeCount())
@@ -5258,4 +5297,13 @@ Viewer::handleMorphologicalOperations(QStringList list)
 
   if (mopApplied && !savingImages())
     updateGL();
+}
+
+void Viewer::doVRPN(QString cmd) {
+// 	qDebug() << "doing command " << cmd;
+	processCommand(cmd);
+// 	qDebug() << camera()->frame()->isManipulated();
+	vrpnEvent = true;
+    emit updateGL();
+// 	fastDraw();
 }

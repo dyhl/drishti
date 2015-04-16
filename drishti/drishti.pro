@@ -69,7 +69,9 @@ DEFINES += NO_GLMEDIA
 
 INCLUDEPATH += . \
 	16bit \
-        /usr/include/netcdf-3
+        /usr/include/netcdf-3 \
+        /da/sw/vrpn/vrpn-balance-board/install/include \
+        /da/sw/vrpn/vrpn-balance-board/qvrpn/qvrpn
 
 QMAKE_LFLAGS += -Xlinker -rpath -Xlinker \'\$\$ORIGIN/sharedlibs\' 
 QMAKE_LFLAGS += -Xlinker -rpath -Xlinker \'\$\$ORIGIN/ITK\' 
@@ -81,7 +83,8 @@ LIBS += -lQGLViewer \
         -lnetcdf \
         -lGLEW \
  	-lglut \
-	-lGLU
+	-lGLU \
+	-L/da/sw/vrpn/vrpn-balance-board/install/lib -lqvrpn -lvrpn
 }
 }
 

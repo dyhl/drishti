@@ -65,6 +65,8 @@
     <addaction name="actionSave_ImageSequence"/>
     <addaction name="actionSave_Movie"/>
     <addaction name="separator"/>
+    <addaction name="actionConnectVRPN"/>
+    <addaction name="separator"/>
     <addaction name="actionExit"/>
    </widget>
    <widget class="QMenu" name="menuView">
@@ -590,6 +592,11 @@
     <string>Hires Mode (F2)</string>
    </property>
   </action>
+	  <action name="actionConnectVRPN">
+	   <property name="text">
+	    <string>&amp;Connect to VRPN Server...</string>
+	   </property>
+	  </action>
  </widget>
  <resources/>
  <connections/>

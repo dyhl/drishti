@@ -20,6 +20,9 @@
 #include "xmlheaderfunctions.h"
 #include "cropshaderfactory.h"
 
+#include "vrpn_QAnalogRemote.h"
+#include "vrpn_QButtonRemote.h"
+
 //-------------------------------------------------------------------------------
 // -- turn off OpenGL rendering when menus are triggered --
 //-------------------------------------------------------------------------------
@@ -110,7 +113,8 @@ MainWindow::createHiresLowresWindows()
 }
 
 MainWindow::MainWindow(QWidget *parent) :
-  QMainWindow(parent)
+  QMainWindow(parent),
+  _container(new vrpn_QMainloopContainer(0, 0))
 {
   ui.setupUi(this);
 
@@ -333,6 +337,10 @@ MainWindow::MainWindow(QWidget *parent) :
   initializeRecentFiles();
 
   loadSettings();
+}
+
+MainWindow::~MainWindow() {
+	delete _container;
 }
 
 void
@@ -5041,3 +5049,81 @@ MainWindow::on_actionMouse_Grab_triggered()
 	}
     }
 }
+
+//------------------------------------------------------------------
+// Add vrpn stuff
+void MainWindow::on_actionConnectVRPN_triggered() {
+
+	QString server = QInputDialog::getText(this,
+		QLatin1String("Connect to VRPN Server"),
+		QLatin1String("Enter VRPN device and server to use"),
+		QLineEdit::Normal,
+		QString("spaceNav@127.0.0.1:3891"));
+	if (server.isNull()) {
+		return;
+	}
+
+	_container->stop();
+	_container->clear();
+
+	_last.resize(0);
+	_lastAdjusted.resize(0);
+	_zero.resize(0);
+
+	// Analog for values
+	_container->add(new vrpn_QAnalogRemote(server));
+	vrpn_QAnalogRemote * analog = _container->add(new vrpn_QAnalogRemote(server));
+	connect(analog, SIGNAL(analogReport(QList<double>)), this, SLOT(analogReport(QList<double>)));
+
+// 	// Button to detect front panel button AKA A button for re-zeroing.
+// 	vrpn_QButtonRemote * button = _container.add(new vrpn_QButtonRemote(server));
+// 	connect(button, SIGNAL(buttonReleased(int)), this, SLOT(rezeroButton(int)));
+
+	_container->start();
+}
+
+// TODO: change vrpn processcommand to be faster.. have it as its own method
+// now that i understand how camera works in qglviewer
+// add a timeout for the vrpn controls to change draw() quality, like how wheel movement works (check source)
+// add rotation around roll direction (x?)
+// fix zoom and pan up/down
+// add a key toggle to do switch between rotation/translation? Control/Alt, etc
+
+void MainWindow::analogReport(QList<double> channels) {
+	_last.resize(6);
+	for (int i = 0; i < 6; ++i) {
+		_last[i] = channels[i];
+	}
+
+	if (_zero.size() == 0) {
+		// Assume our initial reading is 0.
+		_rezero();
+	}
+
+// 	_lastAdjusted = (_last - _zero).apply(&ensureNonNegative);
+
+// 	for (int i = 0; i < 6; ++i) {
+// 		qDebug() << i << ": " << channels[i];
+// 		_setKg(_fields[i], _lastAdjusted[i]);
+// 	}
+// 	m_Viewer;
+	double sens = 4.0;
+// 	m_Viewer->doVRPN("move " + QString::number(channels[0] * sens)  + " " +
+// 		QString::number(channels[2] * sens)  + " " +
+// 		QString::number(channels[1] * sens)
+// 	);
+	m_Viewer->doVRPN("vrpn " + QString::number(channels[2] * sens) + " " +
+		QString::number(channels[1] * sens) + " " +
+		QString::number(channels[5] * sens)
+	);
+}
+
+void MainWindow::_rezero() {
+	if (_last.size() == 0) {
+		return;
+	}
+	_zero = _last;
+}
+
+
+//------------------------------------------------------------------

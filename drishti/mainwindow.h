@@ -19,12 +19,19 @@
 #include "checkupdates.h"
 #include "classes.h"
 
+#include "vrpn_QMainloopContainer.h"
+
+#include <vector>
+#include <valarray>
+
+
 class MainWindow : public QMainWindow
 {
   Q_OBJECT
 
  public :
   MainWindow(QWidget *parent=0);
+  ~MainWindow();
 
  signals :
    void showMessage(QString, bool);
@@ -117,6 +124,9 @@ class MainWindow : public QMainWindow
    void on_actionNormal_triggered();
    void on_actionLow_triggered();
    void on_actionVeryLow_triggered();
+
+   void on_actionConnectVRPN_triggered();			// vrpn server
+   void analogReport(QList<double> channels);
 
    void quitDrishti();
    void killCheckUpdates();
@@ -308,6 +318,16 @@ class MainWindow : public QMainWindow
    bool haveGrid();
 
    void registerPlugins();
+
+  void _rezero();
+
+  typedef std::valarray<double> DoubleArray;
+  DoubleArray _zero;
+  DoubleArray _last;
+  DoubleArray _lastAdjusted;
+
+  vrpn_QMainloopContainer* _container;
+
 };
 
 

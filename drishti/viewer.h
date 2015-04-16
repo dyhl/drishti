@@ -125,6 +125,8 @@ class Viewer : public QGLViewer
 
   void readSocket();
 
+  void doVRPN(QString);
+
  signals:
   void resetFlipImage();
   void quitDrishti();
@@ -276,4 +278,6 @@ class Viewer : public QGLViewer
   bool mouseMoveEventInViewport(int, QMouseEvent*);
 
   bool mouseMoveEventInPathViewport(int, QMouseEvent*);  
+
+  bool vrpnEvent;
 };
