@@ -2773,7 +2773,6 @@ void
 Viewer::mouseReleaseEvent(QMouseEvent *event)
 {
   mouseButtonPressed = 0;
-
   m_mouseDrag = false;
 
   QGLViewer::mouseReleaseEvent(event);
@@ -2899,8 +2898,19 @@ Viewer::undoParameters()
 }
 
 void
+Viewer::keyReleaseEvent(QKeyEvent *event) {
+
+	shiftPressed = event->modifiers() & Qt::ShiftModifier;
+	controlPressed = event->modifiers() & Qt::ControlModifier;
+
+	QGLViewer::keyReleaseEvent(event);
+}
+
+void
 Viewer::keyPressEvent(QKeyEvent *event)
 {
+	shiftPressed = event->modifiers() & Qt::ShiftModifier;
+	controlPressed = event->modifiers() & Qt::ControlModifier;
   // Toggle FullScreen - hide menubar on fullscreen
   if (event->key() == Qt::Key_Return)
     {
@@ -4225,39 +4235,7 @@ Viewer::processCommand(QString cmd)
       Vec viewDir = camera()->viewDirection();
       camera()->setPosition(center - dist*viewDir);
     }
-  else if (list[0] == "vrpn") {
-      Vec pos;
-      Quaternion rot;
-      float y=0;
-      float z=0;
-      float a=0;
-      if (list.size() > 3) {
-		  y = list[1].toFloat(&ok);
-		  z = list[2].toFloat(&ok);
-		  a = list[3].toFloat(&ok);
-	  }
-	rot = Quaternion(camera()->upVector(), DEG2RAD(a));
-
-      Quaternion orot = camera()->orientation();
-      rot = rot*orot;
-      // set camera
-      camera()->setOrientation(rot);
-	  float yPos = camera()->position()[1];
-      // now reposition the camera so that it faces the scene
-      Vec center = camera()->sceneCenter();
-      float dist = (camera()->position()-center).norm();
-      Vec viewDir = camera()->viewDirection();
-      camera()->setPosition(center - dist*viewDir);
-//       camera()->setPosition(Vec(0, yPos, 0) + center - dist*viewDir);
-//       camera()->setPosition(pos - dist*viewDir);
-
-      Vec cpos = camera()->position();
-	  pos = (y * camera()->upVector()) + (z * camera()->viewDirection());
-      pos = pos + cpos;
-      camera()->setPosition(pos);
-
-
-  } else if (list[0] == "clip")
+  else if (list[0] == "clip")
     {
       QList<Vec> pts;
       if (GeometryObjects::hitpoints()->activeCount())
@@ -5299,11 +5277,61 @@ Viewer::handleMorphologicalOperations(QStringList list)
     updateGL();
 }
 
-void Viewer::doVRPN(QString cmd) {
-// 	qDebug() << "doing command " << cmd;
-	processCommand(cmd);
-// 	qDebug() << camera()->frame()->isManipulated();
+// TODO: change vrpn processcommand to be faster.. have it as its own method DONE
+// now that i understand how camera works in qglviewer
+// added a dummy mouseRelease event on each doVRPN (look at changing this later)
+// add rotation around roll direction (x?) DONE
+// fix zoom and pan up/down
+// add a key toggle to do switch between rotation/translation? Control/shift, DONE
+
+void Viewer::doVRPN(QList<double> channels, float sensitivity) {
+
+	Vec pos;
+
+	float x= -channels[0] * sensitivity;
+	float y= channels[2] * sensitivity;
+	float z= channels[1] * sensitivity;
+
+	Quaternion rotX = Quaternion(camera()->rightVector(), DEG2RAD(-channels[3] * sensitivity));
+	Quaternion rotY = Quaternion(camera()->upVector(), DEG2RAD(channels[5] * sensitivity));
+	Quaternion rotZ = Quaternion(camera()->viewDirection(), DEG2RAD(channels[4] * sensitivity));
+
+	if (controlPressed) { // switch to translating
+		pos = (x * camera()->rightVector()) +
+			(y * camera()->upVector()) +
+			(z * camera()->viewDirection()) +
+			camera()->position();
+		camera()->setPosition(pos);
+	} else {
+
+		if (shiftPressed) { // lock to largest axis movement
+			if (qAbs(channels[3]) > qAbs(channels[5]) && qAbs(channels[3]) > qAbs(channels[4])) // x
+				camera()->setOrientation(rotX * camera()->orientation());
+			if (qAbs(channels[5]) > qAbs(channels[3]) && qAbs(channels[5]) > qAbs(channels[4])) // y
+				camera()->setOrientation(rotY * camera()->orientation());
+			if (qAbs(channels[4]) > qAbs(channels[3]) && qAbs(channels[4]) > qAbs(channels[5])) // z
+				camera()->setOrientation(rotZ * camera()->orientation());
+		} else {
+			// set camera
+			camera()->setOrientation(rotX * rotY * rotZ * camera()->orientation());
+		}
+		// now reposition the camera so that it faces the scene
+		Vec center = camera()->sceneCenter(); // this needs to change to be previous lookat point
+		float dist = (camera()->position()-center).norm();
+		Vec viewDir = camera()->viewDirection();
+		camera()->setPosition(center - dist*viewDir);
+	}
+
+
+
 	vrpnEvent = true;
-    emit updateGL();
-// 	fastDraw();
+
+    updateGL();
+      QMouseEvent me = QMouseEvent(QEvent::MouseButtonRelease,
+				   QPoint(0, 0),
+				   Qt::LeftButton,
+				   Qt::NoButton,
+				   Qt::NoModifier);
+	  mouseReleaseEvent(&me);
+	vrpnEvent = false;
 }

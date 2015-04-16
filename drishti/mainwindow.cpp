@@ -114,7 +114,7 @@ MainWindow::createHiresLowresWindows()
 
 MainWindow::MainWindow(QWidget *parent) :
   QMainWindow(parent),
-  _container(new vrpn_QMainloopContainer(0, 0))
+  _container(new vrpn_QMainloopContainer(33.333, 0))
 {
   ui.setupUi(this);
 
@@ -5082,13 +5082,6 @@ void MainWindow::on_actionConnectVRPN_triggered() {
 	_container->start();
 }
 
-// TODO: change vrpn processcommand to be faster.. have it as its own method
-// now that i understand how camera works in qglviewer
-// add a timeout for the vrpn controls to change draw() quality, like how wheel movement works (check source)
-// add rotation around roll direction (x?)
-// fix zoom and pan up/down
-// add a key toggle to do switch between rotation/translation? Control/Alt, etc
-
 void MainWindow::analogReport(QList<double> channels) {
 	_last.resize(6);
 	for (int i = 0; i < 6; ++i) {
@@ -5102,20 +5095,8 @@ void MainWindow::analogReport(QList<double> channels) {
 
 // 	_lastAdjusted = (_last - _zero).apply(&ensureNonNegative);
 
-// 	for (int i = 0; i < 6; ++i) {
-// 		qDebug() << i << ": " << channels[i];
-// 		_setKg(_fields[i], _lastAdjusted[i]);
-// 	}
-// 	m_Viewer;
-	double sens = 4.0;
-// 	m_Viewer->doVRPN("move " + QString::number(channels[0] * sens)  + " " +
-// 		QString::number(channels[2] * sens)  + " " +
-// 		QString::number(channels[1] * sens)
-// 	);
-	m_Viewer->doVRPN("vrpn " + QString::number(channels[2] * sens) + " " +
-		QString::number(channels[1] * sens) + " " +
-		QString::number(channels[5] * sens)
-	);
+	float sens = 4.0;
+	m_Viewer->doVRPN(channels, sens);
 }
 
 void MainWindow::_rezero() {

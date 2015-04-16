@@ -83,6 +83,7 @@ class Viewer : public QGLViewer
   virtual void resizeGL(int, int);
 
   virtual void keyPressEvent(QKeyEvent*);
+  virtual void keyReleaseEvent(QKeyEvent*);
 
   virtual void enterEvent(QEvent*);
   virtual void leaveEvent(QEvent*);
@@ -125,7 +126,7 @@ class Viewer : public QGLViewer
 
   void readSocket();
 
-  void doVRPN(QString);
+  void doVRPN(QList<double>, float);
 
  signals:
   void resetFlipImage();
@@ -280,4 +281,6 @@ class Viewer : public QGLViewer
   bool mouseMoveEventInPathViewport(int, QMouseEvent*);  
 
   bool vrpnEvent;
+  bool shiftPressed;
+  bool controlPressed;
 };
