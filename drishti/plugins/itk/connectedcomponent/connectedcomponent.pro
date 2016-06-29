@@ -43,7 +43,7 @@ INCLUDEPATH += ../../../ \
 	$$InsightToolkit\Modules\Segmentation\MarkovRandomFieldsClassifiers\include \
 	$$InsightToolkit\Modules\Segmentation\LabelVoting\include \
 	$$InsightToolkit\Modules\Segmentation\KLMRegionGrowing\include \
-o	$$InsightToolkit\Modules\IO\Siemens\include \
+	$$InsightToolkit\Modules\IO\Siemens\include \
 	$$InsightToolkit\Modules\IO\RAW\include \
 	$$InsightToolkit\Modules\IO\GE\include \
 	$$InsightToolkit\Modules\IO\IPL\include \
@@ -242,7 +242,7 @@ LIBS += common.lib \
 	itkgdcmjpeg12-$${ITKVer}.lib \
 	itkgdcmjpeg16-$${ITKVer}.lib \
 	ITKVNLInstantiation-$${ITKVer}.lib \
-	itkv3p_lsqr-$${ITKVer}.lib \
+#	itkv3p_lsqr-$${ITKVer}.lib \
 	itkvcl-$${ITKVer}.lib
 
 }
@@ -304,8 +304,7 @@ INCLUDEPATH += ../../../ \
 	-litkvnl-$$ITKVer \
 	-litkvcl-$$ITKVer \
 	-litkv3p_netlib-$$ITKVer \
-	-litkv3p_netlib-$$ITKVer \
-	-litkv3p_lsqr-$$ITKVer \
+#	-litkv3p_lsqr-$$ITKVer \
 	-litktiff-$$ITKVer \
 	-litksys-$$ITKVer \
 	-litkpng-$$ITKVer \
@@ -426,8 +425,7 @@ macx {
 	-litkvnl-$$ITKVer \
 	-litkvcl-$$ITKVer \
 	-litkv3p_netlib-$$ITKVer \
-	-litkv3p_netlib-$$ITKVer \
-	-litkv3p_lsqr-$$ITKVer \
+#	-litkv3p_lsqr-$$ITKVer \
 	-litktiff-$$ITKVer \
 	-litksys-$$ITKVer \
 	-litkpng-$$ITKVer \

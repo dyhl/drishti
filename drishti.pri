@@ -125,42 +125,87 @@ contains(Facility_Name, MassiveAtMonashUniversity) {
   unix {
    !macx {
     message(MASSIVE facility at Monash University setup)
+	# Old Renderer defines
+#     contains(DRISHTI_DEFINES, RENDERER) {
+#      INCLUDEPATH += /usr/local/libqglviewer/2.4.0/include \
+#                     /usr/local/glut/3.7/include \
+#                     /usr/local/glew/1.10.0/include
+#
+#       QMAKE_LIBDIR += /usr/lib /usr/lib/x86_64-linux-gnu /usr/local/libqglviewer/2.4.0/lib /usr/local/glut/3.7/lib /usr/local/glew/1.10.0/lib64
+#     }
+#
     contains(DRISHTI_DEFINES, RENDERER) {
-     INCLUDEPATH += /usr/local/libqglviewer/2.4.0/include \
-                    /usr/local/glut/3.7/include \
-                    /usr/local/glew/1.10.0/include
-  
-      QMAKE_LIBDIR += /usr/lib /usr/lib/x86_64-linux-gnu /usr/local/libqglviewer/2.4.0/lib /usr/local/glut/3.7/lib /usr/local/glew/1.10.0/lib64 
+#      INCLUDEPATH += /usr/include/QGLViewer \
+#                     /usr/include/GL
+     INCLUDEPATH += /da/sw/libQGLViewer/libQGLViewer-2.6.3/QGLViewer \
+                    /usr/include/GL
+
+      QMAKE_LIBDIR += /da/sw/libQGLViewer/libQGLViewer-2.6.3/QGLViewer /usr/lib
     }
-  
+
+#     Old Import
+#     contains(DRISHTI_DEFINES, IMPORT) {
+#       QMAKE_LIBDIR += /usr/lib /usr/lib/x86_64-linux-gnu
+#     }
+
     contains(DRISHTI_DEFINES, IMPORT) {
-      QMAKE_LIBDIR += /usr/lib /usr/lib/x86_64-linux-gnu
+      QMAKE_LIBDIR += /usr/lib
     }
-  
+
+#     Old NetCdf
+#     contains(DRISHTI_DEFINES, NETCDF) {
+#       INCLUDEPATH += /usr/local/netcdf/4.1.1-gcc/include
+#       QMAKE_LIBDIR += /usr/local/netcdf/4.1.1-gcc/lib
+#     }
+
     contains(DRISHTI_DEFINES, NETCDF) {
-      INCLUDEPATH += /usr/local/netcdf/4.1.1-gcc/include
-      QMAKE_LIBDIR += /usr/local/netcdf/4.1.1-gcc/lib
+      INCLUDEPATH += /usr/include
+      QMAKE_LIBDIR += /usr/lib
     }
-  
+
+#     Old Tiff
+#     contains(DRISHTI_DEFINES, TIFF) {
+#       QMAKE_LIBDIR += /usr/lib/x86_64-linux-gnu
+#     }
+
     contains(DRISHTI_DEFINES, TIFF) {
-      QMAKE_LIBDIR += /usr/lib/x86_64-linux-gnu
+      QMAKE_LIBDIR += /usr/include/x86_64-pc-linux-gnu
     }
-  
-    contains(DRISHTI_DEFINES, ITK) {
-      INCLUDEPATH += /usr/local/include \
-                     /usr/local/itk/4.4.0/include/ITK-4.4
-  
-      ITKVer = 4.4
-      InsightToolkit = /home/acl900/InsightToolkit-$${ITKVer}.1
-      ITK = /home/acl900/ITK
-  
-      QMAKE_LIBDIR += /usr/local/itk/4.4.0/lib
-      
-      options = $$find(DRISHTI_DEFINES, "RENDERER")
-      count(options, 0) {
-         QMAKE_LIBDIR += /usr/lib /usr/lib/x86_64-linux-gnu
-       }
-     }
+
+#   Old ITK Define
+#    contains(DRISHTI_DEFINES, ITK) {
+#      INCLUDEPATH += /usr/local/include \
+#                     /usr/local/itk/4.4.0/include/ITK-4.4
+#
+#      ITKVer = 4.4
+#      InsightToolkit = /home/acl900/InsightToolkit-$${ITKVer}.1
+#      ITK = /home/acl900/ITK
+#
+#      QMAKE_LIBDIR += /usr/local/itk/4.4.0/lib
+#
+#      options = $$find(DRISHTI_DEFINES, "RENDERER")
+#      count(options, 0) {
+#         QMAKE_LIBDIR += /usr/lib /usr/lib/x86_64-linux-gnu
+#       }
+#     }
+
+#  New ITK Defines
+   contains(DRISHTI_DEFINES, ITK) {
+     INCLUDEPATH += /da/sw/itk/install/include \
+                    /da/sw/itk/install/include/ITK-4.10
+
+     ITKVer = 4.10
+     InsightToolkit = /da/sw/itk/ITK
+     ITK = /da/sw/itk/ITK
+
+     QMAKE_LIBDIR += /da/sw/itk/install/lib
+
+     options = $$find(DRISHTI_DEFINES, "RENDERER")
+     count(options, 0) {
+        QMAKE_LIBDIR += /usr/lib
+      }
+    }
+
     }
   }
 }

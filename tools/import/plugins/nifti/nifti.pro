@@ -107,7 +107,7 @@ win32 {
 	itkgdcmjpeg12-$${ITKVer}.lib \
 	itkgdcmjpeg16-$${ITKVer}.lib \
 	ITKVNLInstantiation-$${ITKVer}.lib \
-	itkv3p_lsqr-$${ITKVer}.lib \
+#	itkv3p_lsqr-$${ITKVer}.lib \
 	itkvcl-$${ITKVer}.lib
 }
 
@@ -161,8 +161,7 @@ INCLUDEPATH += ../../ \
 	-litkvnl-$$ITKVer \
 	-litkvcl-$$ITKVer \
 	-litkv3p_netlib-$$ITKVer \
-	-litkv3p_netlib-$$ITKVer \
-	-litkv3p_lsqr-$$ITKVer \
+#	-litkv3p_lsqr-$$ITKVer \
 	-litktiff-$$ITKVer \
 	-litksys-$$ITKVer \
 	-litkpng-$$ITKVer \

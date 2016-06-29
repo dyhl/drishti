@@ -36,6 +36,7 @@ FORMS += drishtipaint.ui viewermenu.ui graphcutmenu.ui curvesmenu.ui fibersmenu.
 
 unix {
     DEFINES += NO_GLMEDIA
+    INCLUDE_PATH += /usr/include/QGLViewer
 }
 
 #----------------------------------------------------------------
