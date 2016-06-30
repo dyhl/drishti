@@ -110,7 +110,8 @@
      <addaction name="actionRedCyan"/>
      <addaction name="actionRedBlue"/>
      <addaction name="actionCrosseye"/>
-     <addaction name="actionFor3DTV"/>
+     <addaction name="actionFor3DTVSideBySide"/>
+     <addaction name="actionFor3DTVTopBottom"/>
     </widget>
     <widget class="QMenu" name="menuCamera_Type">
      <property name="title">
@@ -568,12 +569,20 @@
     <string>Alt+S</string>
    </property>
   </action>
-  <action name="actionFor3DTV">
+  <action name="actionFor3DTVSideBySide">
    <property name="checkable">
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>3D TV (5)</string>
+    <string>3D TV SideBySide (5)</string>
+   </property>
+  </action>
+  <action name="actionFor3DTVTopBottom">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>3D TV TopBottom (t)</string>
    </property>
   </action>
   <action name="actionHiresMode">

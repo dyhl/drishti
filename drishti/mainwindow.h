@@ -23,6 +23,7 @@ class MainWindow : public QMainWindow
 
  public :
   MainWindow(QWidget *parent=0);
+  bool presentMode;
 
  signals :
    void showMessage(QString, bool);
@@ -92,7 +93,8 @@ class MainWindow : public QMainWindow
    void on_actionRedBlue_triggered();
    void on_actionRedCyan_triggered();
    void on_actionCrosseye_triggered();
-   void on_actionFor3DTV_triggered();
+   void on_actionFor3DTVSideBySide_triggered();
+   void on_actionFor3DTVTopBottom_triggered();		// added top bottom tv mode
    void on_actionMIP_triggered();
    void on_actionStatusBar_triggered();
    void on_actionMouse_Grab_triggered();
@@ -206,6 +208,7 @@ class MainWindow : public QMainWindow
    void loadPlugin();
 
  private :
+
    Ui::MainWindow ui;
 
    Volume *m_Volume;
@@ -309,6 +312,7 @@ class MainWindow : public QMainWindow
    bool haveGrid();
 
    void registerPlugins();
+
 };
 
 

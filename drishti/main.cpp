@@ -23,15 +23,22 @@ int main(int argc, char** argv)
 //  glFormat.setBlueBufferSize(16);
 //  //-----------------------------
 
+  bool usePresentMode = false;
+
   if (argc > 1)
     {
-      if (QString::compare(argv[1], "-stereo", Qt::CaseInsensitive) == 0)
-	glFormat.setStereo(true);
+		for (int i=1; i < argc; ++i) {
+			if (QString::compare(argv[i], "-stereo", Qt::CaseInsensitive) == 0)
+				glFormat.setStereo(true);
+			if (QString::compare(argv[i], "-present", Qt::CaseInsensitive) == 0)
+				usePresentMode = true;
+		}
     }
 
   QGLFormat::setDefaultFormat(glFormat);
 
   MainWindow mainwindow;
+  mainwindow.presentMode = usePresentMode;
   mainwindow.show();
   
   // Run main loop.

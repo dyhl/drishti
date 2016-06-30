@@ -36,7 +36,8 @@ class Enums
       RedCyanImageMode,
       RedBlueImageMode,
       CrosseyeImageMode,
-      ImageMode3DTV
+      ImageMode3DTVSideBySide,
+      ImageMode3DTVTopBottom
     };
 
     enum CropType {

@@ -1863,10 +1863,12 @@ Viewer::renderVolume(int imagequality)
       if (! MainWindowUI::mainWindowUI()->actionRedBlue->isChecked() &&
 	  ! MainWindowUI::mainWindowUI()->actionRedCyan->isChecked() &&
 	  ! MainWindowUI::mainWindowUI()->actionCrosseye->isChecked() &&
-	  ! MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
+	  ! MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->isChecked() &&
+	  ! MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->isChecked())
 	drawInHires(imagequality);
       else if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked() ||
-	       MainWindowUI::mainWindowUI()->actionFor3DTV->isChecked())
+	       MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->isChecked() ||
+	       MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->isChecked())
 	{
 	  int sit = Global::saveImageType();
 	  
@@ -1879,7 +1881,10 @@ Viewer::renderVolume(int imagequality)
 	    camera()->setScreenWidthAndHeight(camW,camH);
 	  camera()->loadProjectionMatrixStereo(false);
 	  camera()->loadModelViewMatrixStereo(false);
-	  glViewport(0,0, camW/2, camH);
+	  if (MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->isChecked())
+	    glViewport(0,0, camW, camH/2);
+      else if (MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->isChecked())
+	    glViewport(0,0, camW/2, camH);
 	  if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked())
 	    Global::setSaveImageType(Global::RightImage);
 	  else
@@ -1893,7 +1898,10 @@ Viewer::renderVolume(int imagequality)
 	    camera()->setScreenWidthAndHeight(camW,camH);
 	  camera()->loadProjectionMatrixStereo(true);
 	  camera()->loadModelViewMatrixStereo(true);
-	  glViewport(camW/2,0, camW/2, camH);
+	  if (MainWindowUI::mainWindowUI()->actionFor3DTVTopBottom->isChecked())
+	    glViewport(0, camH/2, camW, camH/2);
+      else if (MainWindowUI::mainWindowUI()->actionFor3DTVSideBySide->isChecked())
+	    glViewport(camW/2,0, camW/2, camH);
 	  if (MainWindowUI::mainWindowUI()->actionCrosseye->isChecked())
 	    Global::setSaveImageType(Global::LeftImage);
 	  else
@@ -3345,8 +3353,10 @@ void
 Viewer::keyPressEvent(QKeyEvent *event)
 {
   // Toggle FullScreen - hide menubar on fullscreen
-  if (event->key() == Qt::Key_Return &&
-      event->modifiers() & Qt::AltModifier)
+  if (event->key() == Qt::Key_Return)
+  {
+	  // Alt + Enter/Return
+      if (event->modifiers() & Qt::AltModifier)
     {
       QWidget *mw = MainWindowUI::mainWindowUI()->menubar->parentWidget();
       mw->setWindowState(mw->windowState() ^ Qt::WindowFullScreen);
@@ -3359,6 +3369,25 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	MainWindowUI::mainWindowUI()->menubar->show();
       return;
     }
+      else
+	{
+      if (MainWindowUI::mainWindowUI()->menubar->isVisible())
+    {
+      MainWindowUI::mainWindowUI()->menubar->hide();
+      MainWindowUI::mainWindowUI()->statusBar->hide();
+      Global::setBottomText(false);
+      MainWindowUI::mainWindowUI()->actionBottom_Text->setChecked(false);
+    }
+      else
+    {
+      MainWindowUI::mainWindowUI()->menubar->show();
+      MainWindowUI::mainWindowUI()->statusBar->show();
+      Global::setBottomText(true);
+      MainWindowUI::mainWindowUI()->actionBottom_Text->setChecked(true);
+    }
+      updateGL();
+    }
+  }
 
   if (event->key() == Qt::Key_Question)
     {
