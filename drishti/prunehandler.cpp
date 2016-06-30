@@ -410,6 +410,8 @@ PruneHandler::getPruneBuffer()
   if (!m_mopActive)
     return QByteArray();
 
+  //QMessageBox::information(0, "", "getprunebuffer");
+
   QImage pimg = (m_pruneBuffer->toImage()).mirrored(false, true);
   uchar *pbdata = new uchar[4*m_dtexX*m_dtexY];
   memcpy(pbdata, pimg.bits(), 4*m_dtexX*m_dtexY);
@@ -423,12 +425,22 @@ PruneHandler::getPruneBuffer()
 void
 PruneHandler::setPruneBuffer(QByteArray cpb, bool compressed)
 {
+//  if (cpb.isEmpty())
+//    {
+//      // reset channel 2
+//      //QMessageBox::information(0, "", "reset channel 2");
+//      setValue(0, 2, 0, 255);
+//      setValue(0, 1, 0, 255);
+//      m_mopActive = false;
+//      return;
+//    }
+
+  //QMessageBox::information(0, "", "setprunebuffer");
+  //copyToFromSavedChannel(true, 0, 0, false); // save current channel 0
+  
   m_mopActive = true;
   QByteArray pb;
-//  if (compressed)
-//    pb = qUncompress(cpb);
-//  else
-    pb = cpb;
+  pb = cpb;
 
   uchar *pbdata = new uchar[4*m_dtexX*m_dtexY];
   memcpy(pbdata, (uchar*)pb.data(), pb.count());
@@ -470,6 +482,8 @@ PruneHandler::setPruneBuffer(QByteArray cpb, bool compressed)
   glUseProgramObjectARB(0);
 
   glDeleteTextures(1, &tex);
+
+  //copyToFromSavedChannel(false, 0, 0, false); // restore channel 0
 }
 
 void
@@ -1621,7 +1635,7 @@ PruneHandler::genBuffer(int dtextureX, int dtextureY)
 
 }
 
-bool firstTimePruneTextureGeneration = true;
+//bool firstTimePruneTextureGeneration = true;
 
 void
 PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
@@ -1629,7 +1643,9 @@ PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
 					Vec dragInfo, Vec subVolSize,
 					uchar *vlut)
 {
+  bool prevModified = m_mopActive;
   m_mopActive = false;
+
 
   m_dtexX = dtextureX;
   m_dtexY = dtextureY;
@@ -1638,12 +1654,64 @@ PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
   m_dataTex = dataTex;
 
   if (!standardChecks()) return;
+  
+  //--------------------
+  bool prune = true;
+  if (m_lut && vlut)
+    {
+      prune = false;
+      if (Global::maskTF() == -1)
+	{
+	  uchar plut[256*256];
+	  memset(plut, 0, 256*256);
+	  for(int l=0; l<Global::lutSize(); l++)
+	    {
+	      int lsize = l*256*256*4;
+	      for(int i=0; i<256*256; i++)
+		plut[i] = qMax(plut[i], vlut[lsize + 4*i+3]);
+	    }
+	  for(int i=0; i<256*256; i++)
+	    {
+	      bool pl = plut[i] > 0;
+	      bool ml = m_lut[i] > 0;
+	      if (pl != ml)
+		{
+		  prune = true;
+		  break;
+		}
+	    }
+	}
+      else
+	{
+	  int l = Global::maskTF();
+	  int lsize = l*256*256*4;
+	  for(int i=0; i<256*256; i++)
+	    {
+	      bool pl = vlut[lsize + 4*i+3] > 0;
+	      bool ml = m_lut[i] > 0;
+	      if (pl != ml)
+		{
+		  prune = true;
+		  break;
+		}
+	    }
+	}
+    }
+
+  if (!prevModified && !prune)
+    {
+      //QMessageBox::information(0, "", QString("ret %1 %2").arg(prevModified).arg(prune));
+      return;
+    }
+  //--------------------
 
   genBuffer(m_dtexX, m_dtexY);
 
-  // copy channel 2 into saved buffer
-  // save tag information
-  copyToFromSavedChannel(true, 2, 2, false);
+//  // copy channel 2 into saved buffer
+//  // save tag information
+//  if (prevModified)
+//    copyToFromSavedChannel(true, 2, 2, false);
+
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle("Updating prune texture");
@@ -1656,9 +1724,18 @@ PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
 
   // copy channel 2 back from saved buffer
   // retrieve tag information
-  if (!firstTimePruneTextureGeneration)
-    copyToFromSavedChannel(false, 2, 2, false); 
-  firstTimePruneTextureGeneration = false;
+//  if (!firstTimePruneTextureGeneration)
+//    copyToFromSavedChannel(false, 2, 2, false); 
+//  firstTimePruneTextureGeneration = false;
+
+
+//  if (prevModified)
+//    copyToFromSavedChannel(false, 2, 2, false); 
+//  else
+    m_mopActive = false;
+
+
+    //QMessageBox::information(0, "", QString("%1 %2").arg(prevModified).arg(m_mopActive));
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle("Drishti");

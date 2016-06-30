@@ -14,7 +14,6 @@
 
 #include "savepvldialog.h"
 #include "volumefilemanager.h"
-#include "marchingcubes.h"
 
 #ifdef Q_OS_WIN
 #include <float.h>
@@ -69,7 +68,6 @@ Raw2Pvl::applyMapping(uchar *raw, int voxelType,
 {
   int rawSize = rawMap.size()-1;
 
-  bool domap = true;
   if (rawMap.count() == pvlMap.count())
     {
       bool same = true;
@@ -988,11 +986,11 @@ getPvlNcFilename()
 bool
 saveSliceZeroAtTop()
 {
-  bool save0attop = false;
+  bool save0attop = true;
   bool ok = false;
   QStringList slevels;
-  slevels << "No - (default)";  
-  slevels << "Yes - save slice 0 as top slice";
+  slevels << "Yes - (default)";  
+  slevels << "No - save slice 0 as bottom slice";
   QString option = QInputDialog::getItem(0,
 		   "Save Data",
 		   "Save slice 0 as top slice ?",
@@ -1003,11 +1001,12 @@ saveSliceZeroAtTop()
   if (ok)
     {
       QStringList op = option.split(' ');
-      if (op[0] == "Yes")
-	save0attop = true;
+      if (op[0] == "No")
+	{
+	  save0attop = false;
+	  QMessageBox::information(0, "Save Data", "First slice is now bottom slice.");
+	}
     }
-  else
-    QMessageBox::information(0, "Save Data", "Will not save slice 0 as top slice.");
 
   return save0attop;
 }
@@ -1555,6 +1554,71 @@ Raw2Pvl::savePvl(VolumeData* volData,
   //------------------------------------------------------
 
   //------------------------------------------------------
+  // get final volume size
+  int final_dsz2 = dsz2;
+  int final_wsz2 = wsz2;
+  int final_hsz2 = hsz2;
+  int pad_value = 0;
+  int sfd = 0;
+  int sfw = 0;
+  int sfh = 0;
+  int efd = 0;
+  int efw = 0;
+  int efh = 0;
+  {
+    bool ok;
+    QString text;
+    text = QInputDialog::getText(0,
+				 "Final Volume Grid Size With Padding",
+				 "Final Volume Grid Size With Padding",
+				 QLineEdit::Normal,
+				 QString("%1 %2 %3").\
+				 arg(final_dsz2).\
+				 arg(final_wsz2).\
+				 arg(final_hsz2),
+				 &ok);
+    if (ok && !text.isEmpty())
+      {
+	QStringList list = text.split(" ", QString::SkipEmptyParts);
+	if (list.count() == 3)
+	  {
+	    final_dsz2 = qMax(dsz2, list[0].toInt());
+	    final_wsz2 = qMax(wsz2, list[1].toInt());
+	    final_hsz2 = qMax(hsz2, list[2].toInt());
+
+	    int td = final_dsz2 - dsz2;
+	    int tw = final_wsz2 - wsz2;
+	    int th = final_hsz2 - hsz2;
+
+	    sfd = td/2;
+	    efd = td - sfd;
+
+	    sfw = tw/2;
+	    efw = tw - sfw;
+
+	    sfh = th/2;
+	    efh = th - sfh;
+
+	    if (td != 0 || tw != 0 || th != 0)
+	      {
+		QString text;
+		text = QInputDialog::getText(0,
+					     "Pad volume With Value",
+					     "Pad Volume With Value",
+					     QLineEdit::Normal,
+					     "0",
+					     &ok);
+		if (ok && !text.isEmpty())
+		  pad_value = text.toInt();
+	      }
+	  }
+      }
+
+    slabSize = final_dsz2+1;
+  }
+  //------------------------------------------------------
+
+  //------------------------------------------------------
   // -- get saving parameters for processed file
   SavePvlDialog savePvlDialog;
   float vx, vy, vz;
@@ -1605,6 +1669,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	       wsz2 != rvwidth ||
 	       hsz2 != rvheight);
 
+  uchar *final_val = new uchar[pvlbpv*final_wsz2*final_hsz2];
 
   VolumeFileManager rawFileManager;
   VolumeFileManager pvlFileManager;
@@ -1636,9 +1701,12 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	}
 
       pvlFileManager.setBaseFilename(pvlflnm);
-      pvlFileManager.setDepth(dsz2);
-      pvlFileManager.setWidth(wsz2);
-      pvlFileManager.setHeight(hsz2);
+//      pvlFileManager.setDepth(dsz2);
+//      pvlFileManager.setWidth(wsz2);
+//      pvlFileManager.setHeight(hsz2);
+      pvlFileManager.setDepth(final_dsz2);
+      pvlFileManager.setWidth(final_wsz2);
+      pvlFileManager.setHeight(final_hsz2);
       pvlFileManager.setVoxelType(pvlVoxelType);
       pvlFileManager.setHeaderSize(13);
       pvlFileManager.setSlabSize(slabSize);
@@ -1688,12 +1756,26 @@ Raw2Pvl::savePvl(VolumeData* volData,
       savePvlHeader(pvlflnm,
 		    saveRawFile, rawflnm,
 		    voxelType, pvlVoxelType, voxelUnit,
-		    dsz/svslz, wsz/svsl, hsz/svsl,
+		    //dsz/svslz, wsz/svsl, hsz/svsl,
+		    //dsz2, wsz2, hsz2,
+		    final_dsz2, final_wsz2, final_hsz2,
 		    vx, vy, vz,
 		    rawMap, pvlMap,
 		    description,
 		    slabSize);
-      
+
+
+      // ------------------
+      // add padding
+      if (sfd > 0)
+	{
+	  memset(final_val, pad_value, pvlbpv*final_wsz2*final_hsz2);
+	  for(int esl=0; esl<sfd; esl++)
+	    pvlFileManager.setSlice(esl, final_val);
+	}
+      // ------------------
+	
+
       for(int dd=0; dd<dsz2; dd++)
 	{
 	  int d0 = dmin + dd*svslz; 
@@ -1855,9 +1937,39 @@ Raw2Pvl::savePvl(VolumeData* volData,
 		       pvlslice, pvlbpv, pvlMap,
 		       width, height);
 
-	  pvlFileManager.setSlice(dd, pvlslice);
+	  if (sfw == 0 && sfh == 0)
+	    pvlFileManager.setSlice(sfd+dd, pvlslice);
+	  else // add padding if required
+	    {
+	      memset(final_val, pad_value, pvlbpv*final_wsz2*final_hsz2);
+	      if (pvlbpv == 1)
+		{
+		  for(int wi=0; wi<wsz2; wi++)
+		    for(int hi=0; hi<hsz2; hi++)
+		      final_val[(wi+sfw)*final_hsz2+(hi+sfh)] = pvlslice[wi*hsz2+hi];
+		}
+	      else
+		{
+		  for(int wi=0; wi<wsz2; wi++)
+		    for(int hi=0; hi<hsz2; hi++)
+		      ((ushort*)final_val)[(wi+sfw)*final_hsz2+(hi+sfh)] = ((ushort*)pvlslice)[wi*hsz2+hi];
+		}
+	      pvlFileManager.setSlice(sfd+dd, final_val);
+	    }
 	}
     }
+
+  // -------------------------
+  // add padding if required
+  if (efd > 0)
+    {
+      memset(final_val, pad_value, pvlbpv*final_wsz2*final_hsz2);
+      for(int esl=0; esl<efd; esl++)
+	pvlFileManager.setSlice(dsz2+sfd+esl, final_val);
+    }
+  // -------------------------
+
+  delete [] final_val;
 
   delete [] filtervol;
   delete [] pvlslice;
@@ -2014,358 +2126,7 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 			int hmin, int hmax,
 			QStringList timeseriesFiles)
 {
-  uchar voxelType = volData->voxelType();  
-
-  //---- get isosurface value ---
-  bool ok;
-  float isoval;
-  if (voxelType == _UChar) 
-    isoval = QInputDialog::getInt(0, "Isovalue", "Value", 50, 0, 255, 1, &ok);
-  else if (voxelType == _Char)
-    isoval = QInputDialog::getInt(0, "Isovalue", "Value", 0, -127, 128, 1, &ok);
-  else if (voxelType == _UShort)
-    isoval = QInputDialog::getInt(0, "Isovalue", "Value", 10000, 0, 65535, 1, &ok);
-  else if (voxelType == _Short)
-    isoval = QInputDialog::getInt(0, "Isovalue", "Value", 10000, -32767, 32768, 1, &ok);
-  else if (voxelType == _Int)
-    isoval = QInputDialog::getInt(0, "Isovalue", "Value", 0, -2147483647, 2147483647, 1, &ok);
-  else if (voxelType == _Float)
-    isoval = QInputDialog::getDouble(0, "Isovalue", "Value", 0, -2147483647, 2147483647, 1, &ok);
-  if (!ok)
-    return;
-  //----------------------------
-
-
-  int rvdepth, rvwidth, rvheight;    
-  volData->gridSize(rvdepth, rvwidth, rvheight);
-
-  int dsz=dmax-dmin+1;
-  int wsz=wmax-wmin+1;
-  int hsz=hmax-hmin+1;
-
-  int headerBytes = volData->headerBytes();
-
-  int bpv = 1;
-  if (voxelType == _UChar) bpv = 1;
-  else if (voxelType == _Char) bpv = 1;
-  else if (voxelType == _UShort) bpv = 2;
-  else if (voxelType == _Short) bpv = 2;
-  else if (voxelType == _Int) bpv = 4;
-  else if (voxelType == _Float) bpv = 4;
-
-  bool save0AtTop = saveSliceZeroAtTop();;
-
-  int svslz = getZSubsampling(dsz, wsz, hsz);
-  int svsl = getXYSubsampling(svslz, dsz, wsz, hsz);
-
-  int dsz2 = dsz/svslz;
-  int wsz2 = wsz/svsl;
-  int hsz2 = hsz/svsl;
-  int svsl3 = svslz*svsl*svsl;
-  //------------------------------------------------------
-
-
-  int memGb = 1;
-  int spareMb = 500;
-  ok = loadSettings(memGb, spareMb);
-  ok = checkSettings(memGb, spareMb);
-  if (!ok)
-    {
-      getSettings(memGb, spareMb);
-      saveSettings(memGb, spareMb);
-    }
-
-  qint64 gb = 1024*1024*1024;
-  qint64 mb = 1024*1024;
-  qint64 memsize = memGb*gb; // main memory size (in GB)
-  memsize -= spareMb*mb; // keep some spare (in Mb)
-
-  qint64 totsize = dsz2;
-  totsize*=wsz2;
-  totsize*=hsz2;
-  totsize*=(12+bpv);
-  totsize += 100*mb; // import program requirements
-
-  if (totsize > memsize)
-    {
-      QStringList items;
-      items << "No";
-      items << "Yes";
-      QString item = QInputDialog::getItem(0,
-					   "Memory requirements exceed available memory",
-					   QString("Memory requirements %1 Mb higher than %2 Mb\nWant to continue ?"). \
-					   arg(totsize/1024/1024).arg(memsize/1024/1024),
-					   items,
-					   0,
-					   false,
-					   &ok);
-      if (item != "Yes" || !ok)
-	return;
-    }
-
-
-  //------------------------------------------------------
-  // -- get saving parameters for processed file
-  int spread = 0;
-  {
-    QStringList items;
-    items << "No Filter";
-    items << "3x3";
-    items << "5x5";
-    items << "7x7";
-    items << "11x11";
-    QString item = QInputDialog::getItem(0,
-					 "Apply Mean Filter ?",
-					 QString("Filter Size"),
-					 items,
-					 0,
-					 false,
-					 &ok);
-    if (item != "No Filter" && ok)
-      spread = item.split("x")[0].toInt();
-  }
-
-  bool dilateFilter = false;
-
-  int nbytes = rvwidth*rvheight*bpv;
-  double *filtervol = new double[wsz2*hsz2];
-  uchar *raw = new uchar[nbytes];
-  uchar *rawVolumeData = new uchar[dsz2*wsz2*hsz2*bpv];
-
-  uchar **val;
-  if (spread > 0)
-    {
-      val = new uchar*[2*spread+1];
-      for (int i=0; i<2*spread+1; i++)
-	val[i] = new uchar[nbytes];
-    }
-  int width = wsz2;
-  int height = hsz2;
-  bool subsample = (svsl > 1 || svslz > 1);
-  bool trim = (dmin != 0 ||
-	       wmin != 0 ||
-	       hmin != 0 ||
-	       dsz2 != rvdepth ||
-	       wsz2 != rvwidth ||
-	       hsz2 != rvheight);
-
-
-  QProgressDialog progress("Generating volume for isosurface generation",
-			   "Cancel",
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  //------------------------------------------------------
-  int tsfcount = qMax(1, timeseriesFiles.count());
-  for (int tsf=0; tsf<tsfcount; tsf++)
-    {
-      if (tsfcount > 1)
-	volData->replaceFile(timeseriesFiles[tsf]);
-      
-      for(int dd=0; dd<dsz2; dd++)
-	{
-	  int d0 = dmin + dd*svslz; 
-	  int d1 = d0 + svslz-1;
-	  
-	  progress.setValue((int)(100*(float)dd/(float)dsz2));
-	  qApp->processEvents();
-	  
-	  memset(filtervol, 0, 8*wsz2*hsz2);
-	  for (int d=d0; d<=d1; d++)
-	    {
-	      if (spread > 0)
-		{
-		  if (d == d0)
-		    {
-		      volData->getDepthSlice(d, val[spread]);
-		      applyMeanFilterToSlice(val[spread], raw,
-					     voxelType, rvwidth, rvheight,
-					     spread, dilateFilter);
-
-		      for(int i=-spread; i<0; i++)
-			{
-			  if (d+i >= 0)
-			    volData->getDepthSlice(d+i, val[spread+i]);
-			  else
-			    volData->getDepthSlice(0, val[spread+i]);
-
-			  applyMeanFilterToSlice(val[spread+i], raw,
-						 voxelType, rvwidth, rvheight,
-						 spread, dilateFilter);
-			}
-		      
-		      for(int i=1; i<=spread; i++)
-			{
-			  if (d+i < rvdepth)
-			    volData->getDepthSlice(d+i, val[spread+i]);
-			  else
-			    volData->getDepthSlice(rvdepth-1, val[spread+i]);
-
-			  applyMeanFilterToSlice(val[spread+i], raw,
-						 voxelType, rvwidth, rvheight,
-						 spread, dilateFilter);
-			}
-		    }
-		  else if (d < rvdepth-spread)
-		    {
-		      volData->getDepthSlice(d+spread, val[2*spread]);
-		      applyMeanFilterToSlice(val[2*spread], raw,
-					     voxelType, rvwidth, rvheight,
-					     spread, dilateFilter);
-		    }
-		  else
-		    {
-		      volData->getDepthSlice(rvdepth-1, val[2*spread]);
-		      applyMeanFilterToSlice(val[2*spread], raw,
-					     voxelType, rvwidth, rvheight,
-					     spread, dilateFilter);
-		    }
-		}
-	      else
-		volData->getDepthSlice(d, raw);
-	      
-	      if (spread > 0)
-		{
-		  applyMeanFilter(val, raw,
-				  voxelType, rvwidth, rvheight,
-				  spread, dilateFilter);
-		  
-		  // now shift the planes
-		  uchar *tmp = val[0];
-		  for(int i=0; i<2*spread; i++)
-		    val[i] = val[i+1];
-		  val[2*spread] = tmp;
-		}
-	      
-	      if (trim || subsample)
-		{
-		  int fi = 0;
-		  for(int j=0; j<wsz2; j++)
-		    {
-		      int y0 = wmin+j*svsl;
-		      int y1 = y0+svsl-1;
-		      for(int i=0; i<hsz2; i++)
-			{
-			  int x0 = hmin+i*svsl;
-			  int x1 = x0+svsl-1;
-			  for(int y=y0; y<=y1; y++)
-			    for(int x=x0; x<=x1; x++)
-			      {
-				if (voxelType == _UChar)
-				  { uchar *ptr = raw; filtervol[fi] += ptr[y*rvheight+x]; }
-				else if (voxelType == _Char)
-				  { char *ptr = (char*)raw; filtervol[fi] += ptr[y*rvheight+x]; }
-				else if (voxelType == _UShort)
-				  { ushort *ptr = (ushort*)raw; filtervol[fi] += ptr[y*rvheight+x]; }
-				else if (voxelType == _Short)
-				  { short *ptr = (short*)raw; filtervol[fi] += ptr[y*rvheight+x]; }
-				else if (voxelType == _Int)
-				  { int *ptr = (int*)raw; filtervol[fi] += ptr[y*rvheight+x]; }
-				else if (voxelType == _Float)
-				  { float *ptr = (float*)raw; filtervol[fi] += ptr[y*rvheight+x]; }
-			      }
-			  fi++;
-			}
-		    }
-		} // trim || subsample
-	    }
-	  
-	  if (trim || subsample)
-	    {
-	      if (subsample)
-		{
-		  for(int fi=0; fi<wsz2*hsz2; fi++)
-		    filtervol[fi] /= svsl3;
-		}
-	    	      
-	      if (voxelType == _UChar)
-		{
-		  uchar *ptr = rawVolumeData + dd*wsz2*hsz2;
-		  for(int fi=0; fi<wsz2*hsz2; fi++)
-		    ptr[fi] = filtervol[fi];
-		}
-	      else if (voxelType == _Char)
-		{
-		  char *ptr = (char*)rawVolumeData + dd*wsz2*hsz2;
-		  for(int fi=0; fi<wsz2*hsz2; fi++)
-		    ptr[fi] = filtervol[fi];
-		}
-	      else if (voxelType == _UShort)
-		{
-		  ushort *ptr = (ushort*)rawVolumeData + dd*wsz2*hsz2;
-		  for(int fi=0; fi<wsz2*hsz2; fi++)
-		    ptr[fi] = filtervol[fi];
-		}
-	      else if (voxelType == _Short)
-		{
-		  short *ptr = (short*)rawVolumeData + dd*wsz2*hsz2;
-		  for(int fi=0; fi<wsz2*hsz2; fi++)
-		    ptr[fi] = filtervol[fi];
-		}
-	      else if (voxelType == _Int)
-		{
-		  int *ptr = (int*)rawVolumeData + dd*wsz2*hsz2;
-		  for(int fi=0; fi<wsz2*hsz2; fi++)
-		    ptr[fi] = filtervol[fi];
-		}
-	      else if (voxelType == _Float)
-		{
-		  float *ptr = (float*)rawVolumeData + dd*wsz2*hsz2;
-		  for(int fi=0; fi<wsz2*hsz2; fi++)
-		    ptr[fi] = filtervol[fi];
-		}
-	    } // trim || subsample	 
-	  else
-	    {
-	      uchar *ptr = (uchar*)rawVolumeData + bpv*dd*wsz2*hsz2;
-	      memcpy(ptr, raw, wsz2*hsz2*bpv);
-	    }
-	}
-    }
-  progress.setValue(100);
-
-  delete [] raw;
-  delete [] filtervol;
-  if (spread > 0)
-    {
-      for (int i=0; i<2*spread+1; i++)
-	delete [] val[i];
-      delete [] val;
-    }
-  
-
-
-  //---- read data and generate the mesh ---
-  MarchingCubes mc ;
-  mc.set_resolution( hsz2, wsz2, dsz2 ) ;
-  mc.set_ext_data(voxelType, rawVolumeData);
-  mc.init_all() ;
-  mc.run(isoval) ;
-  mc.clean_temps() ;
-  //----------------------------
-
-
-  //---- export the grid ---
-  QString flnm = QFileDialog::getSaveFileName(0,
-					      "Export mesh to file",
-					      Global::previousDirectory(),
-					      "*.ply",
-					      0,
-					      QFileDialog::DontUseNativeDialog);
-  if (flnm.size() != 0)
-    mc.writePLY(flnm.toLatin1().data(), true); // write binary .ply file
-  //----------------------------
-
-  mc.clean_all() ;
-
-
-  delete [] rawVolumeData;
-
-  if (flnm.size() != 0)
-    QMessageBox::information(0, "Save", "-----Done-----");
-  else
-    QMessageBox::information(0, "Not Saved", "Output not saved");
+  QMessageBox::information(0, "Error", "This option is no longer available");
 }
 
 void

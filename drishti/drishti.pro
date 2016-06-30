@@ -22,7 +22,8 @@ FORMS += mainwindow.ui \
 	 propertyeditor.ui \
 	 profileviewer.ui \
 	 viewseditor.ui \
-	 volumeinformation.ui
+	 volumeinformation.ui \
+	 raycastmenu.ui
 
 
 TEMPLATE = app
@@ -49,12 +50,13 @@ win32 {
 
   contains(Windows_Setup, Win64) {
     message(drishti.exe : Win64 setup)
+    DEFINES += _CRT_SECURE_NO_WARNINGS
     INCLUDEPATH += ..\glmedia-64 16bit
     QMAKE_LIBDIR += ..\glmedia-64
     LIBS += QGLViewer2.lib \
-  	netcdfcpp-x64.lib \
+  	netcdfcpp.lib \
   	glew32.lib \
-  	glut64.lib \
+  	freeglut.lib \
   	glmedia.lib
   }
 }
@@ -237,7 +239,11 @@ HEADERS += boundingbox.h \
 	   gilightobject.h \
 	   gilightinfo.h \
 	   gilightobjectinfo.h \
-	   videoplayer.h
+	   videoplayer.h \
+	   mybitarray.h \
+	   rcviewer.h \
+	   rcshaderfactory.h \
+	   popupslider.h
 
 SOURCES += boundingbox.cpp \
            blendshaderfactory.cpp \
@@ -368,4 +374,8 @@ SOURCES += boundingbox.cpp \
 	   gilightobject.cpp \
 	   gilightinfo.cpp \
 	   gilightobjectinfo.cpp \
-	   videoplayer.cpp
+	   videoplayer.cpp \
+	   mybitarray.cpp \
+	   rcviewer.cpp \
+	   rcshaderfactory.cpp \
+	   popupslider.cpp

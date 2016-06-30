@@ -31,6 +31,10 @@ class VolumeFileManager
   void setMemMapped(bool);
   bool isMemMapped();
 
+  void setSaveFrequency(int o) { m_saveFreq = o; };
+
+  void setMemChanged(bool);
+
   void setFilenameList(QStringList);
   void setBaseFilename(QString);
   void setHeaderSize(int);
@@ -41,6 +45,11 @@ class VolumeFileManager
   void setWidth(int);
   void setHeight(int);
   void createFile(bool, bool writeData=false);
+
+  QStringList filenameList();
+  QString baseFilename();
+  int headerSize();
+  int slabSize();
 
   int depth();
   int width();
@@ -76,8 +85,16 @@ class VolumeFileManager
   void setHeightSliceMem(int, uchar*);
   uchar* rawValueMem(int, int, int);
 
+  bool setValueMem(int, int, int, int);
+
+  uchar* memVolDataPtr() { return m_volData; }
+
+  void saveBlock(int, int, int, int, int, int);
+
  private :
   bool m_memmapped;
+  bool m_memChanged;
+  int m_saveFreq, m_mcTimes;
   QString m_baseFilename;
   QStringList m_filenames;
   qint64 m_header, m_slabSize;

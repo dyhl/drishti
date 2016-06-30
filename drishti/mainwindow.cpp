@@ -190,10 +190,6 @@ MainWindow::MainWindow(QWidget *parent) :
   m_keyFrame = new KeyFrame();
   m_Viewer->setKeyFrame(m_keyFrame);
 
-  QScrollArea *scrollArea;
-  QSize minSize, maxSize;
-
-
   //----------------------------------------------------------
   m_dockTF = new QDockWidget("Transfer Function Editor", this);
   m_dockTF->setAllowedAreas(Qt::LeftDockWidgetArea | 
@@ -215,31 +211,19 @@ MainWindow::MainWindow(QWidget *parent) :
 
   //----------------------------------------------------------
   m_bricksWidget = new BricksWidget(NULL, m_bricks);
-  scrollArea = new QScrollArea();
-  scrollArea->setWidget(m_bricksWidget);
-  minSize = m_bricksWidget->minimumSize();
-  maxSize = m_bricksWidget->maximumSize()+QSize(10,10);
-  scrollArea->setMinimumSize(minSize);
-  scrollArea->setMaximumSize(maxSize);
   QDockWidget *dock3 = new QDockWidget("Bricks Editor", this);
   dock3->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			 Qt::RightDockWidgetArea);
-  dock3->setWidget(scrollArea);
+  dock3->setWidget(m_bricksWidget);
   dock3->hide();
   //----------------------------------------------------------
 
   //----------------------------------------------------------
   m_volInfoWidget = new VolumeInformationWidget();
-  scrollArea = new QScrollArea();
-  scrollArea->setWidget(m_volInfoWidget);
-  minSize = m_volInfoWidget->minimumSize();
-  maxSize = m_volInfoWidget->maximumSize()+QSize(10,10);
-  scrollArea->setMinimumSize(minSize);
-  scrollArea->setMaximumSize(maxSize);
   QDockWidget *dock4 = new QDockWidget("Volume Information", this);
   dock4->setAllowedAreas(Qt::LeftDockWidgetArea | 
 			 Qt::RightDockWidgetArea);
-  dock4->setWidget(scrollArea);
+  dock4->setWidget(m_volInfoWidget);
   dock4->hide();
   //----------------------------------------------------------
 
@@ -265,13 +249,13 @@ MainWindow::MainWindow(QWidget *parent) :
   m_dockKeyframe->hide();
   //----------------------------------------------------------
 
-  //----------------------------------------------------------
-  m_dockGallery = new QDockWidget("Gallery", this);
-  m_dockGallery->setAllowedAreas(Qt::AllDockWidgetAreas);
+//  //----------------------------------------------------------
+//  m_dockGallery = new QDockWidget("Gallery", this);
+//  m_dockGallery->setAllowedAreas(Qt::AllDockWidgetAreas);
   m_gallery = new ViewsEditor();
-  m_dockGallery->setWidget(m_gallery);
-  m_dockGallery->hide();
-  //----------------------------------------------------------
+//  m_dockGallery->setWidget(m_gallery);
+//  m_dockGallery->hide();
+//  //----------------------------------------------------------
 
 
   addDockWidget(Qt::RightDockWidgetArea, m_dockTF);
@@ -280,7 +264,7 @@ MainWindow::MainWindow(QWidget *parent) :
   addDockWidget(Qt::LeftDockWidgetArea, dock4);
   addDockWidget(Qt::LeftDockWidgetArea, dock5);
   addDockWidget(Qt::BottomDockWidgetArea,m_dockKeyframe);
-  addDockWidget(Qt::BottomDockWidgetArea,m_dockGallery);
+//  addDockWidget(Qt::BottomDockWidgetArea,m_dockGallery);
 
   QString tstr = QString("Drishti v") +
                  Global::DrishtiVersion() +
@@ -296,7 +280,7 @@ MainWindow::MainWindow(QWidget *parent) :
   ui.menuView->addAction(dock3->toggleViewAction());
   ui.menuView->addAction(dock4->toggleViewAction());
   ui.menuView->addAction(m_dockKeyframe->toggleViewAction());
-  ui.menuView->addAction(m_dockGallery->toggleViewAction());
+//  ui.menuView->addAction(m_dockGallery->toggleViewAction());
   ui.menuView->addSeparator();
   ui.menuView->addAction(dock5->toggleViewAction());
 
@@ -324,6 +308,7 @@ MainWindow::MainWindow(QWidget *parent) :
   initializeRecentFiles();
 
   loadSettings();
+  
 }
 
 void
@@ -567,7 +552,7 @@ MainWindow::initTagColors()
   for(int i=0; i<256; i++)
     {
       float r,g,b,a;
-      if (i > 0 && i < 254)
+      if (i > 0)
 	{
 	  r = (float)qrand()/(float)RAND_MAX;
 	  g = (float)qrand()/(float)RAND_MAX;
@@ -576,11 +561,7 @@ MainWindow::initTagColors()
 	}
       else
 	{
-	  r = g = b = a = 0;
-	  if (i == 254)
-	    {
-	      r = 0; g = 0.1f; b = 0; a = 0.1f;
-	    }
+	  r = g = b = a = 1.0;
 	}
       colors[4*i+0] = 255*r;
       colors[4*i+1] = 255*g;
@@ -658,6 +639,31 @@ MainWindow::GlewInit()
   m_preferencesWidget->updateTextureMemory();
 
   loadProjectRunKeyframesAndExit();
+
+  // load program 
+  QStringList arguments = qApp->arguments();
+  if (arguments.count() > 1)
+    {
+      int i = 1;
+      if (arguments[i] == "-stereo") i++;
+      if (i < arguments.count())
+	{
+	  if (StaticFunctions::checkExtension(arguments[i], ".pvl.nc"))
+	    {
+	      QStringList flnms;
+	      for(int a=i; a<arguments.count(); a++)
+		flnms << arguments[a];
+	      loadSingleVolume(flnms);
+	    }
+	  else if (StaticFunctions::checkExtension(arguments[i], ".xml"))
+	    {
+	      Global::addRecentFile(arguments[i]);
+	      updateRecentFileAction();
+	      createHiresLowresWindows();
+	      loadProject(arguments[i].toLatin1().data());
+	    }
+	}
+    }
 }
 
 bool
@@ -856,9 +862,6 @@ MainWindow::loadProjectRunKeyframesAndExit()
       Global::setDepthcue(bj.depthcue);
 
       loadProject(bj.projectFilename.toLatin1().data());
-//
-//      m_Viewer->updateLookupTable();
-//
 
       if (!bj.backgroundrender)
 	m_Viewer->setUseFBO(false);
@@ -1105,7 +1108,7 @@ MainWindow::on_actionAbout_triggered()
   mesg += "Canberra,\n";
   mesg += "Australia\n\n";
   mesg += "Contact :\nAjay.Limaye@anu.edu.au\n\n";
-  mesg += "Website :\n http://code.google.com/p/drishti-2/\n\n";
+  mesg += "Website :\n https://github.com/AjayLimaye/drishti\n\n";
   mesg += "Drishti User Group :\nhttps://groups.google.com/group/drishti-user-group\n\n";
   mesg += "YouTube :\nhttps://www.youtube.com/user/900acl/videos?sort=dd&flow=list&page=1&view=1\n";
   
@@ -1511,7 +1514,7 @@ MainWindow::on_actionPaths_triggered()
   flnm = QFileDialog::getOpenFileName(0,
 				      "Load paths/vectors file",
 				      Global::previousDirectory(),
-				      "Files (*.paths | *.path | *.vec)",
+				      "Files (*.paths | *.path | *.vec | *.fibers | *.fiber)",
 				      0,
 				      QFileDialog::DontUseNativeDialog);
   
@@ -1521,6 +1524,9 @@ MainWindow::on_actionPaths_triggered()
   QFileInfo f(flnm);
   if (f.suffix() == "vec")
     GeometryObjects::pathgroups()->addVector(flnm);
+  else if (f.suffix() == "fibers" ||
+	   f.suffix() == "fiber")
+    GeometryObjects::paths()->addFibers(flnm);
   else
     {
       QStringList items;
@@ -1892,6 +1898,8 @@ MainWindow::dragEnterEvent(QDragEnterEvent *event)
 		   StaticFunctions::checkURLs(urls, ".landmarks") ||
 		   StaticFunctions::checkURLs(urls, ".paths") ||
 		   StaticFunctions::checkURLs(urls, ".path") ||
+		   StaticFunctions::checkURLs(urls, ".fibers") ||
+		   StaticFunctions::checkURLs(urls, ".fiber") ||
 		   StaticFunctions::checkURLs(urls, ".vec") ||
 		   StaticFunctions::checkURLs(urls, ".grids") ||
 		   StaticFunctions::checkURLs(urls, ".grid"))
@@ -2049,6 +2057,22 @@ MainWindow::dropEvent(QDropEvent *event)
 					       "Removing grid data, invalid grid size");
 		      return;
 		    }
+		  QFileInfo f(url.toLocalFile());		  
+		  Global::setPreviousDirectory(f.absolutePath());
+		}
+	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".fibers") ||
+		       StaticFunctions::checkExtension(url.toLocalFile(), ".fiber"))
+		{
+		  GeometryObjects::paths()->addFibers(url.toLocalFile());
+		  if (!haveGrid())
+		    {
+		      GeometryObjects::paths()->clear();
+		      GeometryObjects::pathgroups()->clear();		      
+		      QMessageBox::information(0, "Fibers",
+					       "Removing fibers data, invalid grid size");
+		      return;
+		    }
+		  
 		  QFileInfo f(url.toLocalFile());		  
 		  Global::setPreviousDirectory(f.absolutePath());
 		}
@@ -2362,6 +2386,14 @@ MainWindow::postLoadVolume()
       ui.actionSwitch_To1D->setChecked(Global::use1D());
       m_tfContainer->switch1D();
     }
+
+  //---------------------
+  if (Global::volumeType() == Global::SingleVolume)
+    m_Viewer->setVolDataPtr(m_Volume->pvlFileManager(0));
+  else
+    m_Viewer->setVolDataPtr(0);
+  
+  //---------------------
 }
 
 void
@@ -2967,7 +2999,7 @@ MainWindow::loadProject(const char* flnm)
   MainWindowUI::changeDrishtiIcon(false);
   m_Hires->disableSubvolumeUpdates();
 
-  bool galleryVisible = m_dockGallery->isVisible();
+//  bool galleryVisible = m_dockGallery->isVisible();
   bool keyframesVisible = m_dockKeyframe->isVisible();
 
   Global::setCurrentProjectFile(QString(flnm));
@@ -3027,7 +3059,7 @@ MainWindow::loadProject(const char* flnm)
   m_tfManager->load(flnm);
 
   
-  m_dockGallery->setVisible(false);
+//  m_dockGallery->setVisible(false);
   m_dockKeyframe->setVisible(false);
 
   loadViewsAndKeyFrames(flnm);
@@ -3047,7 +3079,7 @@ MainWindow::loadProject(const char* flnm)
 	m_tfEditor->setHistogram2D(m_Hires->histogram2D());
     }
 
-  m_dockGallery->setVisible(galleryVisible);
+//  m_dockGallery->setVisible(galleryVisible);
   m_dockKeyframe->setVisible(keyframesVisible);
 
   m_Viewer->createImageBuffers();
@@ -3079,6 +3111,9 @@ MainWindow::loadProject(const char* flnm)
 
   // always keep image captions in mouse grabber pool
   GeometryObjects::imageCaptions()->addInMouseGrabberPool();
+
+  // check overlapping keyframes
+  m_keyFrame->checkKeyFrameNumbers();
 }
 
 void
@@ -3099,6 +3134,10 @@ MainWindow::saveProject(QString xmlflnm, QString dtvfile)
   int mv;
   bool mc, mo, mt;
   m_Hires->getMix(mv, mc, mo, mt);
+
+  float fop, bop;
+  m_Hires->getOpMod(fop, bop);
+
   m_keyFrame->saveProject(m_Viewer->camera()->position(),
 			  m_Viewer->camera()->orientation(),
 			  m_Viewer->camera()->focusDistance(),
@@ -3114,7 +3153,8 @@ MainWindow::saveProject(QString xmlflnm, QString dtvfile)
 			  image,
 			  sz, st, xl, yl, zl,
 			  mv, mc, mo, mt,
-			  PruneHandler::getPruneBuffer());
+			  PruneHandler::getPruneBuffer(),
+			  fop, bop);
 
 
   saveVolumeIntoProject(flnm, dtvfile);
@@ -3231,14 +3271,12 @@ MainWindow::on_actionSave_InformationForDrishtiPrayog_triggered()
 				      QFileDialog::DontUseNativeDialog);
 
   if (!StaticFunctions::checkExtension(flnm, ".drishtiprayog"))
-    {
-      flnm += ".drishtiprayog";
+    flnm += ".drishtiprayog";
       
-      m_Hires->saveForDrishtiPrayog(flnm);
-
-      QMessageBox::information(0, "Drishti-Prayog information saved",
-			       "Drishti-Prayog information data saved to " + flnm);
-    }
+  m_Hires->saveForDrishtiPrayog(flnm);
+  
+  QMessageBox::information(0, "Drishti-Prayog information saved",
+			   "Drishti-Prayog information data saved to " + flnm);
 }
 
 void
@@ -3256,11 +3294,9 @@ MainWindow::on_actionSave_ProjectAs_triggered()
     return;
 
   if (!StaticFunctions::checkExtension(flnm, ".xml"))
-    {
-      flnm += ".xml";
+    flnm += ".xml";
       
-      saveProject(flnm.toLatin1().data(), QString());
-    }
+  saveProject(flnm.toLatin1().data(), QString());
 }
 
 void
@@ -3489,6 +3525,9 @@ MainWindow::setKeyFrame(Vec pos, Quaternion rot,
   bool mixTag;
   m_Hires->getMix(mixvol, mixColor, mixOpacity, mixTag);
 
+  float fop, bop;
+  m_Hires->getOpMod(fop, bop);
+
   m_keyFrame->setKeyFrame(pos, rot,
 			  focus, es,
 			  fno,
@@ -3499,7 +3538,8 @@ MainWindow::setKeyFrame(Vec pos, Quaternion rot,
 			  image,
 			  splineInfo,
 			  sz, st, xl, yl, zl,
-			  mixvol, mixColor, mixOpacity, mixTag);
+			  mixvol, mixColor, mixOpacity, mixTag,
+			  fop, bop);
 
   if (m_savePathAnimation > 0)
     {
@@ -3594,7 +3634,15 @@ MainWindow::updateParameters(float stepStill, float stepDrag,
   m_preferencesWidget->setTick(sz, st, xl, yl, zl);
 
   Global::setBackgroundColor(bgColor);
-  Global::setBackgroundImageFile(bgImage);
+
+  //----------------
+  // bgimage file is assumed to be relative to .pvl.nc file
+  // get the absolute path
+  VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
+  QFileInfo fileInfo(pvlInfo.pvlFile);
+  Global::setBackgroundImageFile(bgImage, fileInfo.absolutePath());
+  //----------------
+
   Global::setDrawBox(drawBox);
   Global::setDrawAxis(drawAxis);
   m_Hires->setRenderQuality(renderQuality);
@@ -3618,16 +3666,27 @@ MainWindow::updateParameters(bool drawBox, bool drawAxis,
 			     int sz, int st,
 			     QString xl, QString yl, QString zl,
 			     int mv, bool mc, bool mo, float iv, bool mt,
-			     bool pruneblend)
+			     bool pruneblend,
+			     float fop, float bop)
 {
   m_preferencesWidget->setTick(sz, st, xl, yl, zl);
   Global::setBackgroundColor(bgColor);
-  Global::setBackgroundImageFile(bgImage);
+
+  //----------------
+  // bgimage file is assumed to be relative to .pvl.nc file
+  // get the absolute path
+  VolumeInformation pvlInfo = VolumeInformation::volumeInformation();
+  QFileInfo fileInfo(pvlInfo.pvlFile);
+  Global::setBackgroundImageFile(bgImage, fileInfo.absolutePath());
+  //----------------
+
   Global::setDrawBox(drawBox);
   Global::setDrawAxis(drawAxis);
 
   m_Hires->setMix(mv, mc, mo, iv);
   m_Hires->setMixTag(mt);
+
+  m_Hires->setOpMod(fop, bop);
 
   ui.actionAxes->setChecked(Global::drawAxis());
   ui.actionBoundingBox->setChecked(Global::drawBox());
@@ -4882,6 +4941,12 @@ MainWindow::on_actionFor3DTV_triggered()
   MainWindowUI::mainWindowUI()->actionRedBlue->setChecked(false);
   MainWindowUI::mainWindowUI()->actionRedCyan->setChecked(false);
 
+  m_Viewer->updateGL();
+}
+
+void
+MainWindow::on_actionMIP_triggered()
+{
   m_Viewer->updateGL();
 }
 

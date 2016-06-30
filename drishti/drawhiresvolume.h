@@ -28,8 +28,11 @@ class DrawHiresVolume : public QObject
   ~DrawHiresVolume();
 
   bool loadingData() { return m_loadingData; }
+  void setRaycastMode(bool m) { m_rcMode = m; }
   
   Vec pointUnderPixel(QPoint, bool&);
+
+  double* brick0Xform();
 
   int numOfTextureSlabs() { return m_textureSlab.count(); }
   int getSubvolumeSubsamplingLevel();
@@ -149,10 +152,16 @@ class DrawHiresVolume : public QObject
 
   void createDefaultShader();
 
+  void getOpMod(float&, float&);
+  void setOpMod(float, float);
+
  signals :
   void histogramUpdated(QImage, QImage);
 
  private :
+  float m_frontOpMod;
+  float m_backOpMod;
+
   bool m_showing;
   bool m_forceBackToFront;
   
@@ -218,8 +227,11 @@ class DrawHiresVolume : public QObject
   GLhandleARB m_backplaneShader1;
   GLhandleARB m_backplaneShader2;
 
+
+  GLint m_vertParm[50];
+
   GLint m_lutParm[50];
-  GLint m_defaultParm[50];
+  GLint m_defaultParm[60];
   GLint m_blurParm[50];
   GLint m_backplaneParm1[50];
   GLint m_backplaneParm2[50];
@@ -237,6 +249,7 @@ class DrawHiresVolume : public QObject
   float m_projectionMatrix[16];
   float m_adjustedProjectionMatrix[16];
 
+  bool m_rcMode;
   bool m_loadingData;
 
   bool m_updateSubvolume;
@@ -285,7 +298,7 @@ class DrawHiresVolume : public QObject
 
   void loadCameraMatrices();
 
-  void preDrawGeometry(int, int, Vec, Vec, Vec);
+  void preDrawGeometry(int, int, Vec, Vec, Vec, bool fromclip=false);
   void postDrawGeometry();
   void drawGeometry(float, float, Vec,
 		    bool, bool, Vec);
@@ -345,6 +358,8 @@ class DrawHiresVolume : public QObject
 			    VolumeFileManager&);
 
   void screenShadow(int, int, int, int);
+
+  void check_MIP();
 };
 
 #endif

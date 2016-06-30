@@ -98,6 +98,24 @@ KeyFrame::setKeyFrameNumber(int selected, int frameNumber)
 }
 
 void
+KeyFrame::checkKeyFrameNumbers()
+{
+  // check overlapping keyframes
+  QString mesg;
+  for(int i=0; i<m_keyFrameInfo.count()-1; i++)
+    for(int j=i+1; j<m_keyFrameInfo.count(); j++)
+      {
+	if (m_keyFrameInfo[i]->frameNumber() ==
+	    m_keyFrameInfo[j]->frameNumber())
+	  mesg += QString("Clash of keyframes at : %1").\
+	          arg(m_keyFrameInfo[i]->frameNumber());
+      }
+  if (!mesg.isEmpty())
+    QMessageBox::information(0, "Keyframe clash", mesg);
+}
+
+
+void
 KeyFrame::reorder(QList<int> sorted)
 {
   QList<CameraPathNode*> camList(m_cameraList);
@@ -131,7 +149,8 @@ KeyFrame::saveProject(Vec pos, Quaternion rot,
 		      int sz, int st,
 		      QString xl, QString yl, QString zl,
 		      int mixvol, bool mixColor, bool mixOpacity, bool mixTag,
-		      QByteArray pb) 
+		      QByteArray pb,
+		      float fop, float bop) 
 {
   m_savedKeyFrame.clear();
   m_savedKeyFrame.setFrameNumber(-1);
@@ -173,6 +192,7 @@ KeyFrame::saveProject(Vec pos, Quaternion rot,
   m_savedKeyFrame.setNetworks(GeometryObjects::networks()->get());
   m_savedKeyFrame.setPruneBuffer(pb);
   m_savedKeyFrame.setPruneBlend(PruneHandler::blend());
+  m_savedKeyFrame.setOpMod(fop, bop);
 
   // not saving splineInfo for savedKeyFrame
   //m_savedKeyFrame.setSplineInfo(splineInfo);
@@ -191,7 +211,8 @@ KeyFrame::setKeyFrame(Vec pos, Quaternion rot,
 		      QList<SplineInformation> splineInfo,
 		      int sz, int st,
 		      QString xl, QString yl, QString zl,
-		      int mixvol, bool mixColor, bool mixOpacity, bool mixTag)
+		      int mixvol, bool mixColor, bool mixOpacity, bool mixTag,
+		      float fop, float bop)
 {
   int volumeNumber=0, volumeNumber2=0, volumeNumber3=0, volumeNumber4=0;
   volumeNumber = Global::volumeNumber();
@@ -226,7 +247,8 @@ KeyFrame::setKeyFrame(Vec pos, Quaternion rot,
 	      image,
 	      sz, st, xl, yl, zl,
 	      mixvol, mixColor, mixOpacity, mixTag,
-	      pb);
+	      pb,
+	      fop, bop);
 
   bool found = false;
   int kfn = -1;
@@ -266,10 +288,10 @@ KeyFrame::setKeyFrame(Vec pos, Quaternion rot,
   cam->setPosition(pos);
   cam->setOrientation(rot);
 
-  title = QInputDialog::getText(0, "Keyframe Title",
-				QString("Title").arg(frameNumber),
-				QLineEdit::Normal,
-				title);
+//  title = QInputDialog::getText(0, "Keyframe Title",
+//				QString("Title").arg(frameNumber),
+//				QLineEdit::Normal,
+//				title);
 
   kfi->setTitle(title);
   kfi->setFrameNumber(frameNumber);
@@ -313,6 +335,7 @@ KeyFrame::setKeyFrame(Vec pos, Quaternion rot,
   kfi->setNetworks(GeometryObjects::networks()->get());
   kfi->setPruneBuffer(pb);
   kfi->setPruneBlend(PruneHandler::blend());
+  kfi->setOpMod(fop, bop);
 
   emit setImage(kfn, image);  
   
@@ -431,6 +454,17 @@ KeyFrame::interpolateAt(int kf, float frc,
   Vec bg = bg0 + rfrc*(bg1-bg0);
   kfi.setBackgroundColor(bg);
   //-------------------------------  
+
+
+  //-------------------------------  
+  float fop, bop, fop0, bop0, fop1, bop1;
+  m_keyFrameInfo[kf]->getOpMod(fop0, bop0);
+  m_keyFrameInfo[kf+1]->getOpMod(fop1, bop1);
+  fop = fop0 + frc*(fop1-fop0);
+  bop = bop0 + frc*(bop1-bop0);
+  kfi.setOpMod(fop, bop);
+  //-------------------------------  
+
 
   //-------------------------------  
   if (frc < 0.5)
@@ -897,18 +931,27 @@ KeyFrame::playSavedKeyFrame()
   int mv;
   bool mc, mo, mt;
   m_savedKeyFrame.getMix(mv, mc, mo, mt);
-  
+
+  float fop, bop;
+  m_savedKeyFrame.getOpMod(fop, bop);
+
   emit updateParameters(drawBox, drawAxis,
 			backgroundColor,
 			backgroundImage,
 			sz, st, xl, yl, zl,
 			mv, mc, mo, 0.0f, mt,
-			m_savedKeyFrame.pruneBlend());
+			m_savedKeyFrame.pruneBlend(),
+			fop, bop);
 
   QByteArray pb = m_savedKeyFrame.pruneBuffer();
   if (! pb.isEmpty())
-    PruneHandler::setPruneBuffer(pb);
-
+    {
+      emit updatePruneBuffer(false);
+      PruneHandler::setPruneBuffer(pb);
+    }
+  else
+    emit updatePruneBuffer(true);
+  
   Global::enableViewerUpdate();
   MainWindowUI::changeDrishtiIcon(true);
   Global::setPlayFrames(true);
@@ -1046,16 +1089,25 @@ KeyFrame::playFrameNumber(int fno)
 	  bool mc, mo, mt;
 	  m_keyFrameInfo[kf]->getMix(mv, mc, mo, mt);
 
+	  float fop, bop;
+	  m_keyFrameInfo[kf]->getOpMod(fop, bop);
+
 	  emit updateParameters(drawBox, drawAxis,
 				backgroundColor,
 				backgroundImage,
 				sz, st, xl, yl, zl,
 				mv, mc, mo, 0.0f, mt,
-				m_keyFrameInfo[kf]->pruneBlend());
+				m_keyFrameInfo[kf]->pruneBlend(),
+				fop, bop);
 
 	  QByteArray pb = m_keyFrameInfo[kf]->pruneBuffer();
 	  if (! pb.isEmpty())
-	    PruneHandler::setPruneBuffer(pb);
+	    {
+	      emit updatePruneBuffer(false);
+	      PruneHandler::setPruneBuffer(pb);
+	    }
+	  else
+	    emit updatePruneBuffer(true);
 
 	  Global::enableViewerUpdate();
 	  MainWindowUI::changeDrishtiIcon(true);
@@ -1101,7 +1153,6 @@ KeyFrame::playFrameNumber(int fno)
   interpolateAt(i, frc,
 		pos, rot,
 		keyFrameInfo,
-
 		volInterp);
 
   float focusDistance = keyFrameInfo.focusDistance();
@@ -1201,16 +1252,26 @@ KeyFrame::playFrameNumber(int fno)
   int mv;
   bool mc, mo, mt;
   keyFrameInfo.getMix(mv, mc, mo, mt);
+
+  float fop, bop;
+  keyFrameInfo.getOpMod(fop, bop);
+
   emit updateParameters(drawBox, drawAxis,
 			backgroundColor,
 			backgroundImage,
 			sz, st, xl, yl, zl,
 			mv, mc, mo, volInterp, mt,
-			keyFrameInfo.pruneBlend());
+			keyFrameInfo.pruneBlend(),
+			fop, bop);
 
   QByteArray pb = keyFrameInfo.pruneBuffer();
   if (! pb.isEmpty())
-    PruneHandler::setPruneBuffer(pb);
+    {
+      emit updatePruneBuffer(false);
+      PruneHandler::setPruneBuffer(pb);
+    }
+  else
+    emit updatePruneBuffer(true);
 
   Global::enableViewerUpdate();
   MainWindowUI::changeDrishtiIcon(true);

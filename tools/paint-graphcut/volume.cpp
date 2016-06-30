@@ -1,10 +1,39 @@
 #include "volume.h"
 #include "staticfunctions.h"
 #include "global.h"
+#include "getmemorysize.h"
 
-void Volume::setBitmapThread(BitmapThread *bt) {thread = bt;}
+void
+Volume::saveIntermediateResults(bool forceSave)
+{
+  m_mask.saveIntermediateResults(forceSave);
+}
 
-void Volume::saveIntermediateResults() { m_mask.saveIntermediateResults(); }
+void
+Volume::saveMaskBlock(int d, int w, int h, int rad)
+{
+  m_mask.saveMaskBlock(d, w, h, rad);
+}
+
+void
+Volume::saveMaskBlock(QList< QList<int> > bl)
+{
+  m_mask.saveMaskBlock(bl);
+}
+
+void
+Volume::offLoadMemFile()
+{
+  m_mask.offLoadMemFile();
+  m_pvlFileManager.setMemMapped(false);
+}
+
+void
+Volume::loadMemFile()
+{
+  m_pvlFileManager.loadMemFile();
+  m_mask.loadMemFile();
+}
 
 void
 Volume::setMaskDepthSlice(int slc, uchar* tagData)
@@ -47,15 +76,6 @@ Volume::Volume()
 
   m_histogramImage1D = QImage(256, 256, QImage::Format_RGB32);
   m_histogramImage2D = QImage(256, 256, QImage::Format_RGB32);
-
-  m_nonZeroVoxels = 0;
-  m_bitmask.clear();
-  m_connectedbitmask.clear();
-
-  connect(&m_mask, SIGNAL(progressChanged(int)),
-	  this, SIGNAL(progressChanged(int)));
-  connect(&m_mask, SIGNAL(progressReset()),
-	  this, SIGNAL(progressReset()));
 }
 
 Volume::~Volume() { reset(); }
@@ -84,8 +104,6 @@ void Volume::reset()
   m_2dHistogram = 0;
   m_histImageData1D = 0;
   m_histImageData2D = 0;
-  m_bitmask.clear();
-  m_connectedbitmask.clear();
 }
 
 
@@ -129,21 +147,29 @@ Volume::setFile(QString volfile)
   m_pvlFileManager.setSlabSize(slabSize);
 
   //----------------
-  float inmemGB = 0.3+((float)m_depth*m_width*m_height*2)/((float)1024*1024*1024);
+  float memSize = getMemorySize();
+  memSize/=1024;
+  memSize/=1024;
+  memSize/=1024;
+//  QMessageBox::information(0, "", QString("Physical Memory : %1 GB").arg(memSize));
+  float inmemGB = 0.3+((float)m_depth*(float)m_width*(float)m_height*2.5)/((float)1024*1024*1024);
   bool inMem = true;
-  bool ok;
-  QStringList dtypes;
-  dtypes.clear();
-  dtypes << "Yes"
-	 << "No";
-  QString option = QInputDialog::getItem(0,
-					 "Memory Mapped File",
-					 QString("Load volume in memory for fast operations ?\nYou will need atleast %1 Gb").arg(inmemGB),
-					 dtypes,
-					 0,
-					 false,
-					 &ok);
-  if (ok && option == "No") inMem = false;
+  if (inmemGB > memSize) // ask when memory requirements greater than physical memory detected
+    {
+      bool ok;
+      QStringList dtypes;
+      dtypes.clear();
+      dtypes << "Yes"
+	     << "No";
+      QString option = QInputDialog::getItem(0,
+					     "Memory Mapped File",
+					     QString("Load volume in memory for fast operations ?\nYou will need atleast %1 Gb").arg(inmemGB),
+					     dtypes,
+					     0,
+					     false,
+					     &ok);
+      if (ok && option == "No") inMem = false;
+    }
   //----------------
   m_pvlFileManager.setMemMapped(inMem);
 
@@ -156,101 +182,16 @@ Volume::setFile(QString volfile)
   m_mask.setFile(mfile, inMem);
   m_mask.setGridSize(m_depth, m_width, m_height, slabSize);
 
-  genHistogram();
+  genHistogram(false);
   generateHistogramImage();
-
-  m_bitmask.resize((qint64)m_depth*m_width*m_height);
-  m_bitmask.fill(false);
-  m_connectedbitmask.resize((qint64)m_depth*m_width*m_height);
-  m_connectedbitmask.fill(false);
 
   m_valid = true;
 
   return true;
 }
 
-//void
-//Volume::createGradVolume()
-//{
-//  if (m_gradFileManager.exists())
-//    return;
-//
-//  m_gradFileManager.createFile(true);
-//
-//  int minx = 0;
-//  int miny = 0;
-//  int minz = 0;
-//  int maxx = m_height;
-//  int maxy = m_width;
-//  int maxz = m_depth;
-//
-//  int lenx = m_height;
-//  int leny = m_width;
-//  int lenz = m_depth;
-//  
-//  QProgressDialog progress(QString("saving val+grad volume"),
-//			   "Cancel",
-//			   0, 100,
-//			   0);
-//  progress.setMinimumDuration(0);
-//
-//
-//  int nbytes = m_width*m_height;
-//  uchar *tmp, *g0, *g1, *g2;
-//  tmp = new uchar [nbytes];
-//  g0  = new uchar [nbytes];
-//  g1  = new uchar [nbytes];
-//  g2  = new uchar [nbytes];
-//
-//  memset(g0, 0, nbytes);
-//  memset(g1, 0, nbytes);
-//  memset(g2, 0, nbytes);
-//
-//  for(int kslc=0; kslc<m_depth; kslc++)
-//    {
-//      progress.setValue((int)(100.0*(float)kslc/(float)m_depth));
-//      qApp->processEvents();
-//
-//      uchar *vslice;
-//      vslice = m_pvlFileManager.getSlice(kslc);
-//
-//      memcpy(g2, vslice, nbytes);
-//
-//      memset(tmp, 0, nbytes);
-//
-//      if (kslc >= 2)
-//	{
-//	  for(int j=1; j<m_width-1; j++)
-//	    for(int i=1; i<m_height-1; i++)
-//	      {
-//		int gx = g1[j*m_height+(i+1)] - g1[j*m_height+(i-1)];
-//		int gy = g1[(j+1)*m_height+i] - g1[(j-1)*m_height+i];
-//		int gz = g2[j*m_height+i] - g0[j*m_height+i];
-//		int gsum = sqrtf(gx*gx+gy*gy+gz*gz);
-//		gsum = qBound(0, gsum, 255);
-//		tmp[j*m_height+i] = gsum;
-//	      }
-//	}
-//
-//      m_gradFileManager.setSlice(kslc, tmp);
-//
-//      uchar *gt = g0;
-//      g0 = g1;
-//      g1 = g2;
-//      g2 = gt;
-//    }
-//
-//  delete [] tmp;
-//  delete [] g0;
-//  delete [] g1;
-//  delete [] g2;
-//
-//  progress.setValue(100);
-//  qApp->processEvents();
-//}
-
 void
-Volume::genHistogram()
+Volume::genHistogram(bool forceHistogram)
 {
   // evaluate 1D & 2D histograms
 
@@ -265,13 +206,17 @@ Volume::genHistogram()
   hfilename += QString("hist");
   QFile hfile;
   hfile.setFileName(hfilename);
-  if (hfile.exists() == true &&
-      hfile.size() == 256*4)    
+
+  if (!forceHistogram)
     {
-      hfile.open(QFile::ReadOnly);
-      hfile.read((char*)m_1dHistogram, 256*4);      
-      hfile.close();
-      return;
+      if (hfile.exists() == true &&
+	  hfile.size() == 256*4)    
+	{
+	  hfile.open(QFile::ReadOnly);
+	  hfile.read((char*)m_1dHistogram, 256*4);      
+	  hfile.close();
+	  return;
+	}
     }
 
   float *flhist1D = new float[256];
@@ -302,8 +247,6 @@ Volume::genHistogram()
 
       for(int j=0; j<nbytes; j++)
 	flhist1D[v[j]]++;
-
-      //vslice = m_gradFileManager.getSlice(slc);
       
       for(int j=0; j<nbytes; j++)
 	flhist2D[vslice[j]*256 + v[j]]++;
@@ -338,10 +281,6 @@ Volume::getDepthSliceImage(int slc)
   for(int t=0; t<nbytes; t++)
     m_slice[2*t] = vslice[t];
 
-//  vslice = m_gradFileManager.getSlice(slc);
-//  for(int t=0; t<nbytes; t++)
-//    m_slice[2*t+1] = vslice[t];
-
   return m_slice;
 }
 
@@ -359,10 +298,6 @@ Volume::getWidthSliceImage(int slc)
   for(int t=0; t<nbytes; t++)
     m_slice[2*t] = vslice[t];
 
-//  vslice = m_gradFileManager.getWidthSlice(slc);
-//  for(int t=0; t<nbytes; t++)
-//    m_slice[2*t+1] = vslice[t];
-
   return m_slice;
 }
 
@@ -379,10 +314,6 @@ Volume::getHeightSliceImage(int slc)
   vslice = m_pvlFileManager.getHeightSliceMem(slc);
   for(int t=0; t<nbytes; t++)
     m_slice[2*t] = vslice[t];
-
-//  vslice = m_gradFileManager.getHeightSlice(slc);
-//  for(int t=0; t<nbytes; t++)
-//    m_slice[2*t+1] = vslice[t];
 
   return m_slice;
 }
@@ -402,8 +333,6 @@ Volume::rawValue(int d, int w, int h)
   uchar *vslice;
   vslice = m_pvlFileManager.rawValueMem(d, w, h);
   vgt << vslice[0];
-//  vslice = m_gradFileManager.rawValue(d, w, h);
-//  vgt << vslice[0];
   vgt << 0;
   
   vgt << m_mask.maskValue(d,w,h);
@@ -462,407 +391,26 @@ Volume::generateHistogramImage()
 }
 
 void
-Volume::dilateVolume()
+Volume::tagDSlice(int currslice, uchar *usermask)
 {
-  m_mask.dilate(m_bitmask);
-}
-void
-Volume::dilateVolume(int mind, int maxd,
-		     int minw, int maxw,
-		     int minh, int maxh)
-{
-  m_mask.dilate(mind, maxd,
-		minw, maxw,
-		minh, maxh,
-		m_bitmask);
+  m_mask.tagDSlice(currslice, usermask);
 }
 
 void
-Volume::erodeVolume()
+Volume::tagWSlice(int currslice, uchar *usermask)
 {
-  m_mask.erode(m_bitmask);
-}
-void
-Volume::erodeVolume(int mind, int maxd,
-		    int minw, int maxw,
-		    int minh, int maxh)
-{
-  m_mask.erode(mind, maxd,
-	       minw, maxw,
-	       minh, maxh,
-	       m_bitmask);
+  m_mask.tagWSlice(currslice, usermask);
 }
 
 void
-Volume::fillVolume(int mind, int maxd,
-		   int minw, int maxw,
-		   int minh, int maxh,
-		   QList<int> dwh,
-		   bool sliceOnly)
+Volume::tagHSlice(int currslice, uchar *usermask)
 {
-  findConnectedRegion(mind, maxd,
-		      minw, maxw,
-		      minh, maxh,
-		      dwh,
-		      sliceOnly);
-
-  m_mask.tagUsingBitmask(dwh,
-			 m_connectedbitmask);
+  m_mask.tagHSlice(currslice, usermask);
 }
 
 void
-Volume::tagAllVisible(int mind, int maxd,
-		      int minw, int maxw,
-		      int minh, int maxh)
+Volume::saveModifiedOriginalVolume()
 {
-  markVisibleRegion(mind, maxd,
-		    minw, maxw,
-		    minh, maxh);
-
-  // dummy pos
-  QList<int> pos;
-  pos.clear();
-
-  m_mask.tagUsingBitmask(pos, m_bitmask);
+  m_pvlFileManager.setMemChanged(true);
+  m_pvlFileManager.saveMemFile();    
 }
-
-void
-Volume::createBitmask()
-{
-  return;
-}
-
-void
-Volume::tagDSlice(int currslice, uchar *usermask, bool flag)
-{
-  if (flag)
-    m_mask.tagDSlice(currslice, usermask);
-  else
-    m_mask.tagDSlice(currslice, m_bitmask, usermask);
-}
-
-void
-Volume::tagWSlice(int currslice, uchar *usermask, bool flag)
-{
-  if (flag)
-    m_mask.tagWSlice(currslice, usermask);
-  else
-    m_mask.tagWSlice(currslice, m_bitmask, usermask);
-}
-
-void
-Volume::tagHSlice(int currslice, uchar *usermask, bool flag)
-{
-  if (flag)
-    m_mask.tagHSlice(currslice, usermask);
-  else
-    m_mask.tagHSlice(currslice, m_bitmask, usermask);
-}
-
-
-void
-Volume::findConnectedRegion(int mind, int maxd,
-			    int minw, int maxw,
-			    int minh, int maxh,
-			    QList<int> pos,
-			    bool sliceOnly)
-{
-  m_connectedbitmask.fill(false);
-
-  uchar *lut = Global::lut();
-  QStack<int> stack;
-
-  uchar *vslice;
-  uchar v0, g0;
-  int d = pos[0];
-  int w = pos[1];
-  int h = pos[2];
-  vslice = m_pvlFileManager.rawValueMem(d, w, h);
-  v0 = vslice[0];
-//  vslice = m_gradFileManager.rawValue(d, w, h);
-//  g0 = vslice[0];
-  g0 = 0;
-
-
-  // put the seeds in
-  for(int pi=0; pi<pos.size()/3; pi++)
-    {
-      int d = pos[3*pi];
-      int w = pos[3*pi+1];
-      int h = pos[3*pi+2];
-      if (d >= mind && d <= maxd &&
-	  w >= minw && w <= maxw &&
-	  h >= minh && h <= maxh)
-	{
-	  qint64 idx = d*m_width*m_height + w*m_height + h;
-	  if (m_bitmask.testBit(idx))
-	    {
-	      m_connectedbitmask.setBit(idx);
-	      stack.push(d);
-	      stack.push(w);
-	      stack.push(h);
-	    }
-	}
-    }
-
-  if (sliceOnly)
-    stack.clear();
-
-  int pv = 0;
-  int progv = 0;
-  while(!stack.isEmpty())
-    {
-      progv++;
-      if (progv == 1000)
-	{
-	  progv = 0;
-	  pv = (++pv % 100);
-	  emit progressChanged(pv);	  
-	}
-
-      int h = stack.pop();
-      int w = stack.pop();
-      int d = stack.pop();
-      qint64 idx = d*m_width*m_height + w*m_height + h;
-      if (m_bitmask.testBit(idx))
-	{
-	  int d0 = qMax(d-1, 0);
-	  int d1 = qMin(d+1, m_depth-1);
-	  int w0 = qMax(w-1, 0);
-	  int w1 = qMin(w+1, m_width-1);
-	  int h0 = qMax(h-1, 0);
-	  int h1 = qMin(h+1, m_height-1);
-	      
-	  for(int d2=d0; d2<=d1; d2++)
-	    for(int w2=w0; w2<=w1; w2++)
-	      for(int h2=h0; h2<=h1; h2++)
-		{
-		  if (d2 >= mind && d2 <= maxd &&
-		      w2 >= minw && w2 <= maxw &&
-		      h2 >= minh && h2 <= maxh)
-		    {
-		      qint64 idx = d2*m_width*m_height +
-			           w2*m_height + h2;
-		      if ( m_bitmask.testBit(idx) &&
-			   !m_connectedbitmask.testBit(idx) )
-			{
-//			  uchar v, g;
-//			  vslice = m_pvlFileManager.rawValue(d2, w2, h2);
-//			  v = vslice[0];
-//			  vslice = m_gradFileManager.rawValue(d2, w2, h2);
-//			  g = vslice[0];
-//
-//			  if (qAbs(v-v0) < Global::deltaV() &&
-//			      g < Global::deltaG())
-			    {
-			      m_connectedbitmask.setBit(idx);
-			      stack.push(d2);
-			      stack.push(w2);
-			      stack.push(h2);
-			    }
-			}
-		    }
-		}
-	}
-    } // end find connected
-  //------------------------------------------------------
-
-  emit progressReset();
-}
-
-void
-Volume::markVisibleRegion(int mind, int maxd,
-			  int minw, int maxw,
-			  int minh, int maxh)
-{
-  m_connectedbitmask.fill(false);
-
-  for(int d=mind; d<=maxd; d++)
-    for(int w=minw; w<=maxw; w++)
-      for(int h=minh; h<=maxh; h++)
-	{
-	  qint64 idx = d*m_width*m_height + w*m_height + h;
-	  // copy bitmask to connectedbitmask
-	  m_connectedbitmask.setBit(idx,
-				    m_bitmask.testBit(idx));
-	}
-}
-
-//void
-//Volume::saveSmoothedVolume()
-//{
-//  if (m_gradFileManager.exists())
-//    return;
-//
-//  m_gradFileManager.createFile(true);
-//
-//  QProgressDialog progress(QString("Saving occlusion spectrum volume"),
-//			   "Cancel",
-//			   0, 100,
-//			   0);
-//  progress.setMinimumDuration(0);
-//
-//  uchar *tmp = new uchar[m_width*m_height];
-//  uchar *stmp = new uchar[m_width*m_height];
-//  int spread = 1;
-//  uchar **val;
-//
-//  bool ok;
-//  QString str = QInputDialog::getText(0,
-//				      "Occlusion Spectrum Spread",
-//				      "Enter filter size ",
-//				      QLineEdit::Normal,
-//				      "1",
-//				      &ok);
-//
-//  if (ok && !str.isEmpty())
-//    spread = qMax(1, str.toInt());
-//
-//  if (spread > 0)
-//    {
-//      val = new uchar*[2*spread+1];
-//      for (int i=0; i<2*spread+1; i++)
-//	val[i] = new uchar[m_width*m_height];
-//    }
-//
-//  //-----------------
-//  for(int d=0; d<=spread; d++)
-//    {
-//      uchar *vslice = m_pvlFileManager.getSlice(d);
-//      memcpy(tmp, vslice, m_width*m_height);
-//
-//      for(int j=0; j<m_width; j++)
-//	{
-//	  int jidx = j*m_height;
-//	  for(int k=0; k<m_height; k++)
-//	  { 
-//	    int ks = qMax(0, k-spread); 
-//	    int ke = qMin(m_height-spread, k+spread);
-//	    
-//	    int dn = 0; 
-//	    float avg = 0;
-//	    for(int k1=ks; k1<=ke; k1++)
-//	      {		  
-//		int idx = jidx+k1;
-//		avg += tmp[idx]; 
-//		dn ++; 
-//	      }
-//	    avg = avg/dn; 
-//	    val[spread+d][j*m_height + k] = avg; 
-//	  }
-//	}
-//
-//      memcpy(tmp, val[spread+d], m_width*m_height);
-//
-//      for(int k=0; k<m_height; k++)
-//	for(int j=0; j<m_width; j++)
-//	  {
-//	    int js = qMax(0, j-spread);
-//	    int je = qMin(m_width-spread, j+spread);
-//	    
-//	    int dn = 0; 
-//	    float avg = 0;
-//	    for(int j1=js; j1<=je; j1++) 
-//	      {		  
-//		int idx = j1*m_height+k;
-//		avg += tmp[idx]; 
-//		dn ++; 
-//	      }
-//	    avg = avg/dn; 
-//	    val[spread+d][j*m_height + k] = avg; 
-//	  }
-//
-//      if (d == 0)
-//	{
-//	  for(int i=-spread; i<0; i++)
-//	    memcpy(val[spread+i], val[spread], m_width*m_height);
-//	}
-//    }
-//  //-----------------
-//
-//  for(int d=0; d<m_depth; d++)
-//    {
-//      progress.setValue((int)(100.0*(float)d/(float)m_depth));
-//      qApp->processEvents();
-//
-//      int ij = 0;
-//      for(int j=0; j<m_width; j++)
-//	for(int k=0; k<m_height; k++)
-//	  {
-//	    float avg = 0;
-//	    for(int i=0; i<2*spread+1; i++) 
-//	      avg += val[i][ij]; 
-//
-//	    stmp[ij] = avg/(2*spread+1);
-//	    ij++;
-//	  }
-//
-//      m_gradFileManager.setSlice(d, stmp);
-//      
-//      // now shift the planes
-//      uchar *vtmp = val[0];
-//      for(int i=0; i<2*spread; i++)
-//	val[i] = val[i+1];
-//      val[2*spread] = vtmp;
-//
-//      if (2*spread+d+1 >= m_depth)
-//	memcpy(val[2*spread], val[2*spread-1], m_width*m_height);
-//      else
-//	{
-//	  uchar *vslice = m_pvlFileManager.getSlice(2*spread+d+1);
-//	  memcpy(tmp, vslice, m_width*m_height);
-//
-//	  for(int j=0; j<m_width; j++)
-//	    {
-//	      int jidx = j*m_height;
-//	      for(int k=0; k<m_height; k++)
-//		{ 
-//		  int ks = qMax(0, k-spread); 
-//		  int ke = qMin(m_height-spread, k+spread);
-//		  
-//		  int dn = 0; 
-//		  float avg = 0;
-//		  for(int k1=ks; k1<=ke; k1++)
-//		    {		  
-//		      int idx = jidx+k1;
-//		      avg += tmp[idx]; 
-//		      dn ++; 
-//		    }
-//		  avg = avg/dn; 
-//		  val[2*spread][j*m_height + k] = avg; 
-//		}
-//	    }
-//	  
-//	  memcpy(tmp, val[2*spread], m_width*m_height);
-//	  
-//	  for(int k=0; k<m_height; k++)
-//	    for(int j=0; j<m_width; j++)
-//	      {
-//		int js = qMax(0, j-spread);
-//		int je = qMin(m_width-spread, j+spread);
-//		
-//		int dn = 0; 
-//		float avg = 0;
-//		for(int j1=js; j1<=je; j1++) 
-//		  {		  
-//		    int idx = j1*m_height+k;
-//		    avg += tmp[idx]; 
-//		    dn ++; 
-//		  }
-//		avg = avg/dn; 
-//		val[2*spread][j*m_height + k] = avg; 
-//	      }
-//	}
-//    }  
-//
-//  for (int i=0; i<2*spread+1; i++)
-//    delete [] val[i];
-//  delete [] val;
-//
-//  delete [] tmp;
-//  delete [] stmp;
-//
-//  progress.setValue(100);
-//  qApp->processEvents();
-//}
-

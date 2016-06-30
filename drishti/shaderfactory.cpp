@@ -16,13 +16,20 @@ ShaderFactory::tagVolume()
 {
   // use buffer values to apply tag colors
   QString shader;
-  shader += "  float ptx = prunefeather.z;\n";
+  shader += "  float ptx;\n";
+  shader += "  if (!mixTag)\n";
+  shader += "    ptx = prunefeather.z;\n";
+  shader += "  else\n";
+  shader += "    ptx = vg.x;\n"; // -- take voxel value
+
+  //shader += "  float ptx = prunefeather.z;\n";
   shader += "  vec4 paintColor = texture1D(paintTex, ptx);\n";
 
   //  shader += "  gl_FragColor = vec4(paintColor.a,0.1,0.1,0.1);\n";
 
   shader += "  ptx *= 255.0;\n";
-  shader += "  if (ptx > 0.0) \n";
+
+  shader += "  if (ptx > 0.0 || mixTag) \n";
   shader += "  {\n";
   shader += "    paintColor.rgb *= gl_FragColor.a;\n";
  // if paintColor is black then change only the transparency
@@ -31,6 +38,8 @@ ShaderFactory::tagVolume()
   shader += "    else\n";
   shader += "      gl_FragColor *= paintColor.a;\n";
   shader += "  }\n";
+  shader += "  else\n";
+  shader += "    gl_FragColor *= paintColor.a;\n";
 
   return shader;
 }
@@ -95,7 +104,13 @@ ShaderFactory::loadShader(GLhandleARB &progObj,
 
   {  // vertObj
     QString qstr;
-    qstr = "varying vec3 pointpos;\n";
+#ifndef Q_OS_MACX
+    qstr += "#version 130\n";
+    qstr += "out float gl_ClipDistance[2];\n";
+    qstr += "uniform vec4 ClipPlane0;\n";
+    qstr += "uniform vec4 ClipPlane1;\n";
+#endif
+    qstr += "varying vec3 pointpos;\n";
     qstr += "void main(void)\n";
     qstr += "{\n";
     qstr += "  // Transform vertex position into homogenous clip-space.\n";
@@ -105,8 +120,13 @@ ShaderFactory::loadShader(GLhandleARB &progObj,
     qstr += "  gl_TexCoord[0] = gl_TextureMatrix[0] * gl_MultiTexCoord0;\n";
     qstr += "  gl_TexCoord[1] = gl_TextureMatrix[1] * gl_MultiTexCoord1;\n";
     qstr += "  gl_TexCoord[2] = gl_TextureMatrix[2] * gl_MultiTexCoord2;\n";
-    qstr += "  gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;\n";
     qstr += "  pointpos = gl_Vertex.xyz;\n";
+#ifndef Q_OS_MACX
+    qstr += "  gl_ClipDistance[0] = dot(gl_Vertex, ClipPlane0);\n";
+    qstr += "  gl_ClipDistance[1] = dot(gl_Vertex, ClipPlane1);\n";
+#else
+    qstr += "  gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;\n";
+#endif
     qstr += "}\n";
     
     int len = qstr.length();
@@ -884,10 +904,19 @@ ShaderFactory::genVgx()
   //---------------------------------------------------------------------
 
   shader += "  t0 = getTextureCoordinate(slice, gridx, tsizex, tsizey, texCoord.xy);\n";
-  shader += "  t1 = getTextureCoordinate(slice+1, gridx, tsizex, tsizey, texCoord.xy);\n";
-  shader += "  val0 = (texture2DRect(dataTex, t0)).x;\n";
-  shader += "  val1 = (texture2DRect(dataTex, t1)).x;\n";
-  shader += "  vg.x = mix(val0, val1, slicef);\n";
+  shader += "  if (linearInterpolation && !mixTag)\n";
+  shader += "   {\n";
+  shader += "     val0 = (texture2DRect(dataTex, t0)).x;\n";
+  shader += "     t1 = getTextureCoordinate(slice+1, gridx, tsizex, tsizey, texCoord.xy);\n";
+  shader += "     val1 = (texture2DRect(dataTex, t1)).x;\n";
+  shader += "     vg.x = mix(val0, val1, slicef);\n";
+  shader += "   }\n";
+  shader += "   else\n"; // nearest neighbour interpolation
+  shader += "   {\n";
+  shader += "     val0 = (texture2DRect(dataTex, floor(t0)+vec2(0.5))).x;\n";
+  shader += "     vg.x = val0;\n";
+  shader += "   }\n";
+
 
   return shader;
 }
@@ -969,12 +998,17 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   shader += "uniform vec3 dirUp;\n";
   shader += "uniform vec3 dirRight;\n";
 
+  shader += "uniform bool mixTag;\n";
+
   shader += "uniform vec3 brickMin;\n";
   shader += "uniform vec3 brickMax;\n";
 
   shader += "uniform int shdlod;\n";
   shader += "uniform sampler2DRect shdTex;\n";
   shader += "uniform float shdIntensity;\n";
+
+  shader += "uniform float opmod;\n";
+  shader += "uniform bool linearInterpolation;\n";
 
   shader += genTextureCoordinate();
 
@@ -1110,7 +1144,7 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
   if (tearPresent || cropPresent || pathCropPresent)
     shader += "  gl_FragColor.rgba = mix(gl_FragColor.rgba, vec4(0.0,0.0,0.0,0.0), feather);\n";
 
-  if (viewPresent) shader += "  blend(otexCoord, vg, gl_FragColor);\n";
+  if (viewPresent) shader += "  blend(false, otexCoord, vg, gl_FragColor);\n";
   
   if (pathViewPresent) shader += "pathblend(otexCoord, vg, gl_FragColor);\n";
   
@@ -1154,6 +1188,8 @@ ShaderFactory::genDefaultSliceShaderString(bool bit16,
 
   // -- depth cueing
   shader += "  gl_FragColor.rgb *= min(1.0,depthcue);\n";
+
+  shader += "  gl_FragColor *= opmod;\n";
 
   if (glowPresent) shader += "  gl_FragColor.rgb += glow(otexCoord);\n";
 

@@ -1,6 +1,9 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
+#include <QGLViewer/qglviewer.h>
+using namespace qglviewer;
+
 #include "commonqtclasses.h"
 #include <QStatusBar>
 #include <QProgressBar>
@@ -54,6 +57,12 @@ class Global
   static int smooth();
   static void setSmooth(int);
 
+  static int thickness();
+  static void setThickness(int);
+
+  static bool closed();
+  static void setClosed(bool);
+
   static int boxSize();
   static void setBoxSize(int);
 
@@ -62,6 +71,21 @@ class Global
 
   static int spread();
   static void setSpread(int);
+
+  static int selectionPrecision();
+  static void setSelectionPrecision(int);
+
+  static Vec voxelScaling();
+  static void setVoxelScaling(Vec);
+
+  static QString voxelUnit();
+  static void setVoxelUnit(QString);
+
+  static GLuint spriteTexture();
+  static void removeSpriteTexture();
+
+  static GLuint hollowSpriteTexture();
+  static void removeHollowSpriteTexture();
 
  private :
   static QString m_documentationPath;
@@ -81,6 +105,14 @@ class Global
   static bool m_copyPrev;
   static int m_prevErode;
   static int m_smooth;
+  static int m_thickness;
+  static bool m_closed;
+  static int m_selpres;
+  static Vec m_voxelScaling;
+  static QString m_voxelUnit;
+
+  static GLuint m_spriteTexture;
+  static GLuint m_hollowSpriteTexture;
 };
 
 #endif

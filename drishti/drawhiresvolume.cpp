@@ -19,6 +19,29 @@
 #include <QFileDialog>
 #include <QDataStream>
 
+double* DrawHiresVolume::brick0Xform() { return m_bricks->getMatrix(); }
+
+void
+DrawHiresVolume::getOpMod(float& front, float& back)
+{
+  front = m_frontOpMod;
+  back = m_backOpMod;
+}
+
+void
+DrawHiresVolume::setOpMod(float fo, float bo)
+{
+  m_frontOpMod = fo;
+  m_backOpMod = bo;
+}
+
+void
+DrawHiresVolume::check_MIP()
+{
+  if (MainWindowUI::mainWindowUI()->actionMIP->isChecked())
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+}
+
 void
 DrawHiresVolume::saveImage2Volume(QString pfile)
 {
@@ -176,6 +199,8 @@ DrawHiresVolume::~DrawHiresVolume()
 void
 DrawHiresVolume::renew()
 {
+  m_frontOpMod = 1.0;
+  m_backOpMod = 1.0;
   m_saveImage2Volume = false;
 
   m_showing = true;
@@ -576,6 +601,10 @@ DrawHiresVolume::postUpdateSubvolume(Vec boxMin, Vec boxMax)
   m_virtualTextureMin = Vec(0,0,0);
   m_virtualTextureMax = m_virtualTextureMin + subVolSize;
 
+  // don't proceed with data loading if in raycast mode
+  if (m_rcMode)
+    return;
+  
   m_Volume->startHistogramCalculation();
   loadTextureMemory();
   m_Volume->endHistogramCalculation();
@@ -1021,6 +1050,10 @@ DrawHiresVolume::createDefaultShader()
   if (! ShaderFactory::loadShader(m_defaultShader,
 				    shaderString))
     exit(0);
+
+  m_vertParm[0] = glGetUniformLocationARB(m_defaultShader, "ClipPlane0");
+  m_vertParm[1] = glGetUniformLocationARB(m_defaultShader, "ClipPlane1");
+
   m_defaultParm[0] = glGetUniformLocationARB(m_defaultShader, "lutTex");
   m_defaultParm[1] = glGetUniformLocationARB(m_defaultShader, "dataTex");
 
@@ -1082,6 +1115,9 @@ DrawHiresVolume::createDefaultShader()
   m_defaultParm[46] = glGetUniformLocationARB(m_defaultShader, "shdlod");
   m_defaultParm[47] = glGetUniformLocationARB(m_defaultShader, "shdTex");
   m_defaultParm[48] = glGetUniformLocationARB(m_defaultShader, "shdIntensity");
+
+  m_defaultParm[49] = glGetUniformLocationARB(m_defaultShader, "opmod");
+  m_defaultParm[50] = glGetUniformLocationARB(m_defaultShader, "linearInterpolation");
 }
 
 void
@@ -2043,13 +2079,23 @@ DrawHiresVolume::getMinZ(QList<Vec> v)
 void
 DrawHiresVolume::postDrawGeometry()
 {
+  // for fixed-function pipeline
   glDisable(GL_CLIP_PLANE0);
   glDisable(GL_CLIP_PLANE1);
+
+  // for progammable pipeline
+  glDisable(GL_CLIP_DISTANCE0);
+  glDisable(GL_CLIP_DISTANCE1);
+  glUniform4fARB(m_vertParm[0], 0, 1, 0, 10000);
+  glUniform4fARB(m_vertParm[1], 1, 0, 0, 10000);
+  GeometryObjects::trisets()->setClipDistance0(0, 1, 0, 10000);
+  GeometryObjects::trisets()->setClipDistance1(1, 0, 0, 10000);
 }
 
 void
 DrawHiresVolume::preDrawGeometry(int s, int layers,
-				 Vec po, Vec pn, Vec step)
+				 Vec po, Vec pn, Vec step,
+				 bool fromclip)
 {
   //----- restrict geometry between two slices ----
   GLdouble eqn[4];
@@ -2064,6 +2110,13 @@ DrawHiresVolume::preDrawGeometry(int s, int layers,
 	  eqn[3] = pn*po;
 	  glEnable(GL_CLIP_PLANE0);
 	  glClipPlane(GL_CLIP_PLANE0, eqn);
+	  if (fromclip)
+	    {
+	      glEnable(GL_CLIP_DISTANCE0);
+	      glUniform4fARB(m_vertParm[0], eqn[0], eqn[1], eqn[2], eqn[3]);
+	    }
+	  else
+	    GeometryObjects::trisets()->setClipDistance0(eqn[0], eqn[1], eqn[2], eqn[3]);
 	}
       if (s < layers-1)
 	{
@@ -2073,6 +2126,13 @@ DrawHiresVolume::preDrawGeometry(int s, int layers,
 	  eqn[3] = -pn*(po-step);
 	  glEnable(GL_CLIP_PLANE1);
 	  glClipPlane(GL_CLIP_PLANE1, eqn);      
+	  if (fromclip)
+	    {
+	      glEnable(GL_CLIP_DISTANCE1);
+	      glUniform4fARB(m_vertParm[1], eqn[0], eqn[1], eqn[2], eqn[3]);
+	    }
+	  else
+	    GeometryObjects::trisets()->setClipDistance1(eqn[0], eqn[1], eqn[2], eqn[3]);
 	}
     }
   else
@@ -2085,6 +2145,13 @@ DrawHiresVolume::preDrawGeometry(int s, int layers,
 	  eqn[3] = -pn*po;
 	  glEnable(GL_CLIP_PLANE0);
 	  glClipPlane(GL_CLIP_PLANE0, eqn);
+	  if (fromclip)
+	    {
+	      glEnable(GL_CLIP_DISTANCE0);
+	      glUniform4fARB(m_vertParm[0], eqn[0], eqn[1], eqn[2], eqn[3]);
+	    }
+	  else
+	    GeometryObjects::trisets()->setClipDistance0(eqn[0], eqn[1], eqn[2], eqn[3]);
 	}
       if (s < layers-1)
 	{
@@ -2094,6 +2161,13 @@ DrawHiresVolume::preDrawGeometry(int s, int layers,
 	  eqn[3] = pn*(po+step);
 	  glEnable(GL_CLIP_PLANE1);
 	  glClipPlane(GL_CLIP_PLANE1, eqn);
+	  if (fromclip)
+	    {
+	      glEnable(GL_CLIP_DISTANCE1);
+	      glUniform4fARB(m_vertParm[1], eqn[0], eqn[1], eqn[2], eqn[3]);
+	    }
+	  else
+	    GeometryObjects::trisets()->setClipDistance1(eqn[0], eqn[1], eqn[2], eqn[3]);
 	}
     }
 }
@@ -2315,6 +2389,11 @@ DrawHiresVolume::setRenderDefault()
 
   if (Global::volumeType() != Global::DummyVolume)
     {
+      glDisable(GL_CLIP_DISTANCE0);
+      glDisable(GL_CLIP_DISTANCE1);
+      glUniform4fARB(m_vertParm[0], 0, 1, 0, 10000);
+      glUniform4fARB(m_vertParm[1], 1, 0, 0, 10000);
+
       //------ prune information ---------
       int dtexX, dtexY;
       m_Volume->getDragTextureSize(dtexX, dtexY);
@@ -2535,6 +2614,12 @@ DrawHiresVolume::drawDefault(Vec pn,
   else
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // back to front
 
+
+  //-----------------------------
+  check_MIP();
+  //-----------------------------
+
+
   drawSlicesDefault(pn, minvert, maxvert,
 		    layers, stepsize);
 
@@ -2562,7 +2647,11 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
     }
   glUniform1fARB(m_defaultParm[48], 2.0-0.8*m_lightInfo.shadowIntensity);
   //----------------------------------------------------------------
-	  
+  if (Global::interpolationType(Global::TextureInterpolation)) // linear
+    glUniform1iARB(m_defaultParm[50], 1);
+  else
+    glUniform1iARB(m_defaultParm[50], 0);
+
 
   //----------------------------------------------------------------
   // for polygons generated from bricks
@@ -2786,6 +2875,16 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
     {
       po += pnDir;
 
+
+      {
+	float sdist = qAbs((maxvert - po)*pn);
+	//float modop = qBound(0.0f, sdist/deplen, 1.0f);
+	float modop = StaticFunctions::smoothstep(0, 1, sdist/deplen);
+	modop = m_frontOpMod*(1-modop) + modop*m_backOpMod;
+	modop = qBound(0.0f, modop, 1.0f);
+	glUniform1fARB(m_defaultParm[49], modop);
+      }
+
       float depthcue = 1;     
       if (Global::depthcue())
 	{
@@ -2812,8 +2911,10 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 			 false, false, Vec(0,0,0),
 			 false);
 	  glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE);
+	  check_MIP();
 	}		     
       //------------------------------------------------------
+
       if (Global::volumeType() != Global::DummyVolume)
 	{
 	  enableTextureUnits();
@@ -3101,6 +3202,8 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
     glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // for frontlit volume
   else
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // back to front
+
+  check_MIP();
 
   glUseProgramObjectARB(0); // disable shaders 
   StaticFunctions::popOrthoView();
@@ -3498,6 +3601,15 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
 
   glUniform3fARB(parm[6], lpos.x, lpos.y, lpos.z);
 
+  // lightlod 0 means use basic lighting model
+  int lightlod = 0;
+  glUniform1iARB(parm[40], lightlod); // lightlod
+
+  // use only ambient component
+  glUniform1fARB(parm[7], 1.0);
+  glUniform1fARB(parm[8], 0.0);
+  glUniform1fARB(parm[9], 0.0);
+
   if (slabend > 1)
     setShader2DTextureParameter(true, defaultShader);
   else
@@ -3723,12 +3835,25 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
     glBlendFunc(GL_ONE_MINUS_DST_ALPHA, GL_ONE); // for frontlit volume
   else
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // back to front
+
+  check_MIP();
   // --------------------------------
 
   glDepthMask(GL_TRUE);
 
   if (slabend > 1) // reset it to 0
     glUniform1iARB(parm[24], 0); // zoffset    
+
+
+  int lightgridx, lightgridy, lightgridz, lightncols, lightnrows;
+  LightHandler::lightBufferInfo(lightgridx, lightgridy, lightgridz,
+				lightnrows, lightncols, lightlod);
+  glUniform1iARB(parm[40], lightlod); // lightlod
+
+  // restore lighting
+  glUniform1fARB(parm[7], m_lightInfo.highlights.ambient);
+  glUniform1fARB(parm[8], m_lightInfo.highlights.diffuse);
+  glUniform1fARB(parm[9], m_lightInfo.highlights.specular);
 }
 
 void
@@ -3766,7 +3891,6 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
     }
   setShader2DTextureParameter(true, defaultShader);
 
-
   bool ok = false;
   Vec voxelScaling = Global::voxelScaling();
   int nclipPlanes = (GeometryObjects::clipplanes()->positions()).count();
@@ -3786,6 +3910,15 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
   parm = m_defaultParm;
 
   glUniform3fARB(parm[6], lpos.x, lpos.y, lpos.z);
+
+  // lightlod 0 means use basic lighting model
+  int lightlod = 0;
+  glUniform1iARB(parm[40], lightlod); // lightlod
+
+  // use only ambient component
+  glUniform1fARB(parm[7], 1.0);
+  glUniform1fARB(parm[8], 0.0);
+  glUniform1fARB(parm[9], 0.0);
 
   QList<bool> clips;
   int btfset;
@@ -3920,25 +4053,27 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
 	  eqn[0] = -m_clipNormal[ic].x;
 	  eqn[1] = -m_clipNormal[ic].y;
 	  eqn[2] = -m_clipNormal[ic].z;
-	  //eqn[3] = m_clipNormal[ic]*(cpos+m_clipNormal[ic]*(clipInfo.thickness[ic]+0.5));
-	  //eqn[3] = m_clipNormal[ic]*(cpos+m_clipNormal[ic]*(clipInfo.thickness[ic]+1.5));
 	  eqn[3] = m_clipNormal[ic]*(cpos+m_clipNormal[ic]*1.5);
 	  glEnable(GL_CLIP_PLANE0);
 	  glClipPlane(GL_CLIP_PLANE0, eqn);
+	  glEnable(GL_CLIP_DISTANCE0);
+	  glUniform4fARB(m_vertParm[0], eqn[0], eqn[1], eqn[2], eqn[3]);
 
 	  eqn[0] = m_clipNormal[ic].x;
 	  eqn[1] = m_clipNormal[ic].y;
 	  eqn[2] = m_clipNormal[ic].z;
-	  //eqn[3] = -m_clipNormal[ic]*(cpos-m_clipNormal[ic]*(clipInfo.thickness[ic]+0.5));
-	  //eqn[3] = -m_clipNormal[ic]*(cpos-m_clipNormal[ic]*(clipInfo.thickness[ic]+1.5));
 	  eqn[3] = -m_clipNormal[ic]*(cpos-m_clipNormal[ic]*(2*clipInfo.thickness[ic]+1.5));
 	  glEnable(GL_CLIP_PLANE1);
 	  glClipPlane(GL_CLIP_PLANE1, eqn);      
+	  glEnable(GL_CLIP_DISTANCE1);
+	  glUniform4fARB(m_vertParm[1], eqn[0], eqn[1], eqn[2], eqn[3]);
 
 	  GeometryObjects::hitpoints()->draw(m_Viewer, m_backlit);
 
 	  GeometryObjects::paths()->draw(m_Viewer, m_backlit, m_lightPosition);
 
+	  glDisable(GL_CLIP_DISTANCE0);
+	  glDisable(GL_CLIP_DISTANCE1);
 	  glDisable(GL_CLIP_PLANE0);
 	  glDisable(GL_CLIP_PLANE1);
 
@@ -3978,6 +4113,16 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
   glUseProgramObjectARB(m_defaultShader);
   glEnable(GL_DEPTH_TEST);
   // --------------------------------
+
+  int lightgridx, lightgridy, lightgridz, lightncols, lightnrows;
+  LightHandler::lightBufferInfo(lightgridx, lightgridy, lightgridz,
+				lightnrows, lightncols, lightlod);
+  glUniform1iARB(m_defaultParm[40], lightlod); // lightlod
+
+  // restore lighting
+  glUniform1fARB(m_defaultParm[7], m_lightInfo.highlights.ambient);
+  glUniform1fARB(m_defaultParm[8], m_lightInfo.highlights.diffuse);
+  glUniform1fARB(m_defaultParm[9], m_lightInfo.highlights.specular);
 }
 
 void
@@ -3989,9 +4134,14 @@ DrawHiresVolume::drawClipPlaneDefault(int s, int layers,
 				      Vec dragTexsize)
 {
   preDrawGeometry(s, layers,
-		  po, pn, step);
+		  po, pn, step, true);
 
   glUniform3fARB(m_defaultParm[6], lpos.x, lpos.y, lpos.z);
+
+  // use only ambient component
+  glUniform1fARB(m_defaultParm[7], 1.0);
+  glUniform1fARB(m_defaultParm[8], 0.0);
+  glUniform1fARB(m_defaultParm[9], 0.0);
 
   QList<bool> clips;
   int btfset;
@@ -4061,6 +4211,11 @@ DrawHiresVolume::drawClipPlaneDefault(int s, int layers,
 	    } // loop over b
 	} // valid tfset
     } // loop over clipplanes
+
+  // restore lighting
+  glUniform1fARB(m_defaultParm[7], m_lightInfo.highlights.ambient);
+  glUniform1fARB(m_defaultParm[8], m_lightInfo.highlights.diffuse);
+  glUniform1fARB(m_defaultParm[9], m_lightInfo.highlights.specular);
 
   postDrawGeometry();
 }
@@ -4486,6 +4641,16 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
       return true;
     }
 
+  if (event->key() == Qt::Key_6)
+    {
+      if (MainWindowUI::mainWindowUI()->actionMIP->isChecked())
+	MainWindowUI::mainWindowUI()->actionMIP->setChecked(false);
+      else
+	MainWindowUI::mainWindowUI()->actionMIP->setChecked(true);
+
+      return true;
+    }
+
   // change imagequality
   if (event->key() == Qt::Key_0)
     {
@@ -4521,12 +4686,12 @@ DrawHiresVolume::keyPressEvent(QKeyEvent *event)
       MainWindowUI::mainWindowUI()->actionDepthcue->setChecked(Global::depthcue());
       return true;
     }
-  if (event->key() == Qt::Key_H)
-    {
-      Global::setUseStillVolume(!Global::useStillVolume());
-      MainWindowUI::mainWindowUI()->actionUse_stillvolume->setChecked(Global::useStillVolume());
-      return true;
-    }
+//  if (event->key() == Qt::Key_H)
+//    {
+//      Global::setUseStillVolume(!Global::useStillVolume());
+//      MainWindowUI::mainWindowUI()->actionUse_stillvolume->setChecked(Global::useStillVolume());
+//      return true;
+//    }
   if (event->key() == Qt::Key_J)
     {
       Global::setUseDragVolumeforShadows(!Global::useDragVolumeforShadows());
@@ -4745,7 +4910,7 @@ DrawHiresVolume::resliceVolume(Vec pos,
   int wd = (wmax-wmin+1)/subsample/vlod;
   int ht = (hmax-hmin+1)/subsample/vlod;
 
-  if (normal*Vec(0,0,-1) > 0.999)
+  if (normal*Vec(0,0,-1) > 0.999 && getVolumeSurfaceArea == 0)
     {
       bool ok;
       QString text;

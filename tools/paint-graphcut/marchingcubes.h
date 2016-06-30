@@ -18,12 +18,11 @@
 #endif // WIN32
 
 #include "commonqtclasses.h"
+#include <QProgressBar>
 #include <QTextEdit>
 #include <QInputDialog>
 #include <QFileDialog>
 #include <QProgressDialog>
-#include <QMessageBox>
-
 
 //_____________________________________________________________________________
 // types
@@ -91,6 +90,10 @@ public :
   ~MarchingCubes() ;
 
 //-----------------------------------------------------------------------------
+// set Logging
+  void setLogger(QTextEdit*, QProgressBar*);
+
+//-----------------------------------------------------------------------------
 // Accessors
 public :
   /** accesses the number of vertices of the generated mesh */
@@ -132,8 +135,8 @@ public :
    */
 //- Ajay -  inline void set_ext_data  ( real *data )
 //- Ajay -  { if( !_ext_data ) delete [] _data ;  _ext_data = data != NULL ;  if( _ext_data ) _data = data ; }
-  inline void set_ext_data  ( int vtype, void *data )
-    { _voxeltype = vtype; if( !_ext_data ) delete [] _data ;  _ext_data = data != NULL ;  if( _ext_data ) _data = data ; }
+  inline void set_ext_data  ( uchar *data )
+  { if( !_ext_data ) delete [] _data ;  _ext_data = data != NULL ;  if( _ext_data ) _data = data ; }
   /**
    * selects to allocate data
    */
@@ -146,8 +149,7 @@ public :
    * \param j ordinate of the cube
    * \param k height of the cube
    */
-//- Ajay -  inline const real get_data  ( const int i, const int j, const int k ) const { return _data[ i + j*_size_x + k*_size_x*_size_y] ; }
-  inline const real get_data(const int, const int, const int) const;
+  inline const real get_data  ( const int i, const int j, const int k ) const { return _data[ i + j*_size_x + k*_size_x*_size_y] ; }
   /**
    * sets a specific cube of the grid
    * \param val new value for the cube
@@ -156,7 +158,7 @@ public :
    * \param k height of the cube
    */
 //- Ajay -  inline void  set_data  ( const real val, const int i, const int j, const int k ) { _data[ i + j*_size_x + k*_size_x*_size_y] = val ; }
-   inline void set_data(const uchar, const int, const int, const int);
+  inline void  set_data  ( const uchar val, const int i, const int j, const int k ) { _data[ i + j*_size_x + k*_size_x*_size_y] = val ; }
 
   // Data initialization
   /** inits temporary structures (must set sizes before call) : the grid and the vertex index per cube */
@@ -178,12 +180,6 @@ public :
    * \param bin if true, the PLY will be written in binary mode
    */
   void writePLY( const char *fn, bool bin = false ) ;
-
-  /**
-   * PLY importation of a mesh
-   * \param fn  name of the PLY file to read from
-   */
-  void readPLY( const char *fn ) ;
 
   /**
    * VRML / Open Inventor exportation of the generated mesh
@@ -243,8 +239,6 @@ protected :
   int add_z_vertex() ;
   /** adds a vertex inside the current cube */
   int add_c_vertex() ;
-
-//  real get_data(const int, const int, const int) const;
 
   /**
    * interpolates the horizontal gradient of the implicit function at the lower vertex of the specified cube
@@ -324,12 +318,11 @@ protected :
   bool      _originalMC ;   /**< selects wether the algorithm will use the enhanced topologically controlled lookup table or the original MarchingCubes */
   bool      _ext_data   ;   /**< selects wether to allocate data or use data from another class */
 
-  int       _voxeltype  ;  /**< voxel type */
   int       _size_x     ;  /**< width  of the grid */
   int       _size_y     ;  /**< depth  of the grid */
   int       _size_z     ;  /**< height of the grid */
 //- Ajay -  real     *_data       ;  /**< implicit function values sampled on the grid */
-  void     *_data       ;  /**< implicit function values sampled on the grid */
+  uchar     *_data       ;  /**< implicit function values sampled on the grid */
 
   int      *_x_verts    ;  /**< pre-computed vertex indices on the lower horizontal   edge of each cube */
   int      *_y_verts    ;  /**< pre-computed vertex indices on the lower longitudinal edge of each cube */
@@ -351,6 +344,9 @@ protected :
   uchar     _case       ;  /**< case of the active cube in [0..15] */
   uchar     _config     ;  /**< configuration of the active cube */
   uchar     _subconfig  ;  /**< subconfiguration of the active cube */
+
+ private :
+  QList<char*> plyStrings;
 };
 //_____________________________________________________________________________
 

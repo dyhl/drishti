@@ -9,7 +9,7 @@ BlendShaderFactory::generateBlend(QList<CropObject> crops,
   Vec voxelScaling = Global::voxelScaling();
   QString shader;
 
-  if (nvol < 2) shader +=  "void blend(vec3 otexCoord, vec2 vg, inout vec4 fragColor)\n";
+  if (nvol < 2) shader +=  "void blend(bool sendTfSet, vec3 otexCoord, vec2 vg, inout vec4 fragColor)\n";
   if (nvol == 2) shader += "void blend(vec3 otexCoord, vec2 vol1, vec2 vol2, float grad1, float grad2, inout vec4 color1, inout vec4 color2)\n";
   if (nvol == 3) shader += "void blend(vec3 otexCoord, vec2 vol1, vec2 vol2, vec2 vol3, float grad1, float grad2, float grad3, inout vec4 color1, inout vec4 color2, inout vec4 color3)\n";
   if (nvol == 4) shader += "void blend(vec3 otexCoord, vec2 vol1, vec2 vol2, vec2 vol3, vec2 vol4, float grad1, float grad2, float grad3, float grad4, inout vec4 color1, inout vec4 color2, inout vec4 color3, inout vec4 color4)\n";
@@ -129,7 +129,13 @@ BlendShaderFactory::generateBlend(QList<CropObject> crops,
 		}
 	      else if (nvol == 1)
 		{
-		  shader += QString("  vgc = vec2(vg.x, vg.y+float(%1));\n").	\
+		  shader += "if (sendTfSet && viewMix > 0.0)\n";
+		  shader += " {\n";
+		  shader += QString("   fragColor = vec4(viewMix,%1,1.0,1.0);\n").arg(crops[ci].tfset());
+		  shader += "   return;\n";
+		  shader += " }\n";
+		  
+		  shader += QString("  vgc = vec2(vg.x, vg.y+float(%1));\n"). \
 		    arg(float(crops[ci].tfset())/float(Global::lutSize()));
 		  shader += "  vcol = texture2D(lutTex, vgc);\n";
 		  if (crops[ci].unionBlend())
@@ -180,6 +186,9 @@ BlendShaderFactory::generateBlend(QList<CropObject> crops,
 	    }
 	}
     }
+
+  if (nvol == 1)
+    shader += "if (sendTfSet) fragColor = vec4(0.0);\n";
 
   shader += "}\n\n";
   return shader;

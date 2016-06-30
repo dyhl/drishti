@@ -17,6 +17,10 @@ using namespace qglviewer;
 #endif // USE_GLMEDIA
 #include "messagedisplayer.h"
 #include "volume.h"
+#include "popupslider.h"
+
+#include "ui_raycastmenu.h"
+#include "rcviewer.h"
 
 class ViewerUndo
 {
@@ -76,10 +80,14 @@ class Viewer : public QGLViewer
   void imageSize(int&, int&);
 
   void setUseFBO(bool);
+
+  void setVolDataPtr(VolumeFileManager*);
+
  public slots :
   void setTag(int);
   void setCarveRadius(int);
   void updateLightBuffers();
+  void updatePruneBuffer(bool);
   void displayMessage(QString, bool);
   void showFullScene();
   void updateStereoSettings(float, float, float);
@@ -129,6 +137,10 @@ class Viewer : public QGLViewer
 
   void readSocket();
 
+  void raycastLightOnOff(int);
+  void on_raycaststillStep_changed(double);
+  void on_raycastdragStep_changed(double);
+
  signals:
   void resetFlipImage();
   void quitDrishti();
@@ -171,6 +183,23 @@ class Viewer : public QGLViewer
  private :
   QWidget *m_parent;
 
+  Ui::RaycastMenu m_raycastUI;
+  QFrame *m_raycastMenu;
+  PopUpSlider *m_viewSpec;
+  PopUpSlider *m_thickEdge;
+  PopUpSlider *m_viewEdge;
+  PopUpSlider *m_viewShadow;
+  PopUpSlider *m_shadowX;
+  PopUpSlider *m_shadowY;
+  QPushButton *m_shadowButton;
+  QPushButton *m_edgeButton;
+
+  PopUpSlider *m_raylen;
+  PopUpSlider *m_amb;
+  PopUpSlider *m_diff;
+  PopUpSlider *m_spec;
+  PopUpSlider *m_aolevel;
+
   ViewerUndo m_undo;
 
   QString m_commandString;
@@ -193,7 +222,7 @@ class Viewer : public QGLViewer
   bool m_useFBO;
   bool m_saveSnapshots;
   QString m_imageFileName;
-  
+
   int m_imageMode;
   bool m_saveMovie;
 #ifdef USE_GLMEDIA
@@ -218,6 +247,7 @@ class Viewer : public QGLViewer
   GLint m_copyParm[5];
 
   bool m_mouseDrag;
+  bool m_updatePruneBuffer;
   QPoint m_mousePressPos;
   QPoint m_mousePrevPos;
 
@@ -234,6 +264,11 @@ class Viewer : public QGLViewer
   bool m_disableRotationInViewport;
   QSpinBox *m_tagSpinBox;
   QSpinBox *m_radSpinBox;
+
+
+  RcViewer m_rcViewer;  
+  bool m_rcMode;
+
 
   void initSocket();
   void processSocketData(QString);
@@ -285,4 +320,7 @@ class Viewer : public QGLViewer
   bool mouseMoveEventInViewport(int, QMouseEvent*);
 
   bool mouseMoveEventInPathViewport(int, QMouseEvent*);  
+
+  void setupRaycastUI();
+  void setupRaycastLightParameters();
 };

@@ -2669,7 +2669,8 @@ PathObject::postdrawAngle(QGLViewer *viewer)
   font.setPointSize(12*fscl);
   StaticFunctions::renderText(v1.x, v1.y,
 			       str, font,
-			       Qt::transparent, Qt::white);
+			      //Qt::transparent, Qt::white);
+			      QColor(50,50,50,150), Qt::white);
 
   glPopMatrix();
 }
@@ -2771,9 +2772,14 @@ PathObject::postdrawLength(QGLViewer *viewer)
   font.setPointSize(12*fscl);
   int x = (x0+x1)/2 + px*1.1;
   int y = (y0+y1)/2 + py*1.1;
+//  StaticFunctions::renderRotatedText(x,y,
+//				     str, font,
+//				     Qt::transparent, Qt::white,
+//				     -angle,
+//				     true); // (0,0) is bottom left
   StaticFunctions::renderRotatedText(x,y,
 				     str, font,
-				     Qt::transparent, Qt::white,
+				     QColor(50,50,50,150), Qt::white,
 				     -angle,
 				     true); // (0,0) is bottom left
     
@@ -2803,7 +2809,7 @@ PathObject::postdrawPointNumbers(QGLViewer *viewer)
       int wd = metric.width(str);
       y += ht/2;
       
-      StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::yellow);
+      StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::cyan);
     }
 }
 
@@ -2891,7 +2897,7 @@ PathObject::postdrawGrab(QGLViewer *viewer,
   int wd = metric.width(str);
   x += 10;
   
-  StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::yellow);
+  StaticFunctions::renderText(x+2, y, str, font, Qt::black, Qt::cyan);
 }
 
 
@@ -3980,3 +3986,82 @@ void PathObject::drawViewportLineDots(QGLViewer *viewer, float scale, int vh)
   }
 
 }
+
+void
+PathObject::makeEquidistant(int npts0)
+{
+  int npts = npts0;
+  if (npts <= 0)
+    npts = m_points.count();
+  npts = qMax(2, npts);
+
+  if (m_closed) npts++;
+
+  int xcount = m_path.count(); 
+  float plen = 0;
+  for (int i=1; i<xcount; i++)
+    {
+      Vec v = m_path[i]-m_path[i-1];
+      plen += v.norm();
+    }
+
+  float delta = plen/(npts-1);
+
+  QList<Vec> mpoints;
+  QList<float> mradx;
+  QList<float> mrady;
+  mpoints << m_path[0];
+  mradx << m_radX[0];
+  mrady << m_radY[0];
+
+  float clen = 0;
+  float pclen = 0;
+  int j = mpoints.count();
+
+  for (int i=1; i<xcount; i++)
+    {
+      Vec a, b;
+      b = m_path[i];
+      a = m_path[i-1];
+
+      Vec dv = b-a;
+      clen += dv.norm();
+
+      while (j*delta <= clen)
+	{
+	  double frc = (j*delta - pclen)/(clen-pclen);
+	  mpoints << (a + frc*dv);
+	  mradx << m_radX[i];
+	  mrady << m_radY[i];
+
+	  j = mpoints.count();
+	}
+      
+      pclen = clen;
+    }
+
+  if (mpoints.count() < npts)
+    {
+      mpoints << m_path[xcount-1];
+      mradx << m_radX[xcount-1];
+      mrady << m_radY[xcount-1];
+    }
+
+  if (m_closed)
+    {
+      mpoints.removeLast();
+      mradx.removeLast();
+      mrady.removeLast();
+    }
+  
+  m_points = mpoints;
+  m_pointRadX = mradx;
+  m_pointRadY = mrady;
+
+  computeTangents();
+
+  m_updateFlag = true;
+  m_undo.append(m_points, m_pointRadX, m_pointRadY, m_pointAngle);
+}
+
+

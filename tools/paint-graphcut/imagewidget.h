@@ -13,6 +13,7 @@
 
 #include "livewire.h"
 #include "curvegroup.h"
+#include "fibergroup.h"
 
 class ImageWidget : public QWidget
 {
@@ -22,13 +23,12 @@ class ImageWidget : public QWidget
   ImageWidget(QWidget*, QStatusBar *);
 
   enum SliceType {
-    DSlice,
+    DSlice = 0,
     WSlice,
     HSlice
   };
 
   void saveImage();
-  void loadCurves(QString);
   
   void setGridSize(int, int, int);
   void setSliceType(int);
@@ -56,20 +56,90 @@ class ImageWidget : public QWidget
 
   void setScrollBars(QScrollBar*, QScrollBar*);
   void getBox(int&, int&, int&, int&, int&, int&);
+  void setBox(int, int, int, int, int, int);
 
   void processPrevSliceTags();
 
-  QVector3D pickedPoint() { return QVector3D(m_lastPickDepth, m_lastPickWidth, m_lastPickHeight); }
+  QVector3D pickedPoint() { return QVector3D(m_lastPickDepth, m_lastPickWidth, m_lastPickHeight); };
+
+  QMultiMap<int, Curve*>* multiMapCurvesD() { return m_dCurves.multiMapCurves(); };
+  QMultiMap<int, Curve*>* multiMapCurvesW() { return m_wCurves.multiMapCurves(); };
+  QMultiMap<int, Curve*>* multiMapCurvesH() { return m_hCurves.multiMapCurves(); };
+
+  QList< QMap<int, Curve> >* morphedCurvesD() { return m_dCurves.morphedCurves(); };
+  QList< QMap<int, Curve> >* morphedCurvesW() { return m_wCurves.morphedCurves(); };
+  QList< QMap<int, Curve> >* morphedCurvesH() { return m_hCurves.morphedCurves(); };
+
+  QList< QMultiMap<int, Curve*> >* shrinkwrapCurvesD() { return m_dCurves.shrinkwrapCurves(); };
+  QList< QMultiMap<int, Curve*> >* shrinkwrapCurvesW() { return m_wCurves.shrinkwrapCurves(); };
+  QList< QMultiMap<int, Curve*> >* shrinkwrapCurvesH() { return m_hCurves.shrinkwrapCurves(); };
+
+  QList<Fiber*>* fibers() { return m_fibers.fibers(); };
+
+  bool seedMoveMode() { return m_livewire.seedMoveMode(); };
+  void deselectAll();
+  void propagateCurves(bool);
+
+  bool dCurvesPresent() { return m_dCurves.curvesPresent(); };
+  bool wCurvesPresent() { return m_wCurves.curvesPresent(); };
+  bool hCurvesPresent() { return m_hCurves.curvesPresent(); };
+  bool fibersPresent() { return m_fibers.fibersPresent(); };
+
+  void resetCurves();
 
  public slots :
   void updateTagColors();
   void sliceChanged(int);
   void userRangeChanged(int, int);
-  void showHelp();
-  void smooth(int, bool);
+  void smooth(int, bool, bool);
   void keyPressEvent(QKeyEvent*);
+  void setLivewire(bool);
+  void setFiberMode(bool);
+  void setCurve(bool);
+  void saveCurves(QString);
+  void saveCurves();
+  void loadCurves();
+  void loadCurves(QString);
+  void saveFibers();
+  void loadFibers();
+  void loadFibers(QString);
+  void setSmoothType(int);
+  void setGradType(int);
+  void freezeLivewire(bool);
+  void newCurve(bool);
+  void endCurve();
+  void newFiber();
+  void endFiber();
+  void morphCurves();
+  void morphSlices();
+  void deleteAllCurves();
+  void zoom0();
+  void zoom9();
+  void zoomUp();
+  void zoomDown();
+  void setPointSize(int);
+  void setMinCurveLength(int);
+  void setSliceLOD(int);
+
+  void paintUsingCurves(int, int, int, int, uchar*, QList<int>);
+
+  void modifyUsingLivewire();
+  void freezeModifyUsingLivewire();
+
+  void setLambda(float);
+  void setSegmentLength(int);
+  void showTags(QList<int>);
+
+  void shrinkwrapPaintedRegion();
+  void shrinkwrapVisibleRegion();
 
  signals :
+  void saveWork();
+  void viewerUpdate();
+  void showEndCurve();
+  void hideEndCurve();
+  void showEndFiber();
+  void hideEndFiber();
   void getSlice(int);
   void getRawValue(int, int, int);
   void newMinMax(float, float);
@@ -88,11 +158,22 @@ class ImageWidget : public QWidget
 		     int, int,
 		     int, int);
 
-  void applySmooth(int, bool);
-  void simulateKeyPressEvent(QKeyEvent*);
   void applyMaskOperation(int, int, int);
   void polygonLevels(QList<int>);
+  void updateViewerBox(int, int, int, int, int, int);
 
+  void setPropagation(bool);
+  void saveMask();
+
+  void shrinkwrap(Vec, Vec,
+		  int, bool, int,
+		  bool,
+		  int, int, int,
+		  int);
+  void connectedRegion(int, int, int,
+		       Vec, Vec,
+		       int, int);
+  
  private :
   QStatusBar *m_statusBar;
   QScrollBar *m_hbar, *m_vbar;
@@ -102,10 +183,14 @@ class ImageWidget : public QWidget
   bool m_livewireMode;
   LiveWire m_livewire;
 
+  bool m_addingCurvePoints;
   bool m_curveMode;
   CurveGroup m_dCurves;
   CurveGroup m_wCurves;
   CurveGroup m_hCurves;
+
+  bool m_fiberMode;
+  FiberGroup m_fibers;
 
   QVector<QRgb> m_tagColors;
   QVector<QRgb> m_prevslicetagColors;
@@ -165,20 +250,27 @@ class ImageWidget : public QWidget
   uchar *m_tags;
 
   bool m_applyRecursive;
+  bool m_extraPressed;
   int m_cslc, m_maxslc;
   int m_key;
   bool m_forward;
 
+  int m_pointSize;
+
+  QList<int> m_showTags;
+
   void resizeImage();
   void recolorImage();
   
-  void drawSizeText(QPainter*);
+  void drawSizeText(QPainter*, int, int);
   void drawRawValue(QPainter*);
   void processCommands(QString);
   void drawRubberBand(QPainter*);
-  void drawCurves(QPainter*);
-  void drawMorphedCurves(QPainter*);
+  int  drawCurves(QPainter*);
+  int  drawMorphedCurves(QPainter*);
+  void drawOtherCurvePoints(QPainter*);
   void drawLivewire(QPainter*);
+  void drawFibers(QPainter*);
 
   bool checkRubberBand(int, int);
 
@@ -190,7 +282,7 @@ class ImageWidget : public QWidget
   void removeDotImage(int, int);
 
   void applyGraphCut();
-  void applyPaint();
+  void applyPaint(bool);
   void applyReset();
   
   void setZoom(float);
@@ -205,12 +297,57 @@ class ImageWidget : public QWidget
   void applyRecursive(int);
   void checkRecursive();
   
-  void applyMorphCurveLimits(uchar*);
-  void saveCurves();
-  void loadCurves();
+  void paintUsingCurves(CurveGroup*, int, int, int, uchar*, QList<int>);
+  void paintUsingCurves(uchar*);
+
+  void saveFibers(QFile*);
+  void loadFibers(QFile*);
 
   void saveCurves(QFile*, CurveGroup*);
   void loadCurves(QFile*, CurveGroup*);
+
+  void saveMorphedCurves(QFile*, CurveGroup*);
+  void loadMorphedCurves(QFile*, CurveGroup*);
+
+  void saveShrinkwrapCurves(QFile*, CurveGroup*);
+  void loadShrinkwrapCurves(QFile*, CurveGroup*);
+
+  void saveCurveData(QFile*, int, Curve*);
+  QPair<int, Curve> loadCurveData(QFile*);
+
+  void graphcutModeKeyPressEvent(QKeyEvent*);
+  bool curveModeKeyPressEvent(QKeyEvent*);
+  bool fiberModeKeyPressEvent(QKeyEvent*);
+
+  void propagateLivewire();
+
+  QList<QPointF> trimPointList(QList<QPointF>, bool);
+
+  void startLivewirePropagation();
+  void endLivewirePropagation();
+
+  void modifyUsingLivewire(int, int);
+
+  void curveMousePressEvent(QMouseEvent*);
+  void fiberMousePressEvent(QMouseEvent*);
+  void graphcutMousePressEvent(QMouseEvent*);
+  void curveMouseMoveEvent(QMouseEvent*);
+  void graphcutMouseMoveEvent(QMouseEvent*);
+
+  CurveGroup* getCg();
+
+  void drawSeedPoints(QPainter*, QVector<QPointF>, QColor);
+  void drawPoints(QPainter*, QVector<QPointF>, QColor, int, int);
+  void drawPoints(QPainter*, QVector<QVector4D>, QColor, int);
+
+  void newPolygon(bool, bool);
+  void newEllipse();
+
+  void startShrinkwrap();
+  void endShrinkwrap();
+  void shrinkwrapCurve();
+
+  void doAnother(int);
 };
 
 

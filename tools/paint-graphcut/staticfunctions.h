@@ -9,6 +9,9 @@
 #include <QMessageBox>
 #include <QDomDocument>
 
+#include <QGLViewer/vec.h>
+using namespace qglviewer;
+
 #define DEG2RAD(angle) angle*3.1415926535897931/180.0
 #define RAD2DEG(angle) angle*180.0/3.1415926535897931
 #define VECPRODUCT(a, b) Vec(a.x*b.x, a.y*b.y, a.z*b.z)
@@ -17,6 +20,10 @@
 class StaticFunctions
 {
  public :
+  static Vec clampVec(Vec, Vec, Vec);
+  static Vec maxVec(Vec, Vec);
+  static Vec minVec(Vec, Vec);
+
   static QGradientStops resampleGradientStops(QGradientStops, int mapSize = 100);
   static void initQColorDialog();
 
@@ -30,12 +37,48 @@ class StaticFunctions
 
   static bool xmlHeaderFile(QString);
   static void getDimensionsFromHeader(QString, int&, int&, int&);
+  static Vec getVoxelSizeFromHeader(QString);
+  static QString getVoxelUnitFromHeader(QString);
   static int getSlabsizeFromHeader(QString);
   static int getPvlHeadersizeFromHeader(QString);
   static int getRawHeadersizeFromHeader(QString);
   static QStringList getPvlNamesFromHeader(QString);
   static QStringList getRawNamesFromHeader(QString);
 
+  static bool inTriangle(Vec, Vec, Vec, Vec);
+
+  static void renderText(int, int,
+			 QString, QFont,
+			 QColor, QColor,
+			 bool useTextPath = false);
+  static void renderRotatedText(int, int,
+				QString, QFont,
+				QColor, QColor,
+				float, bool,
+				bool useTextPath = false);
+
+  static void pushOrthoView(float, float, float, float);
+  static void popOrthoView();
+  static void drawQuad(float, float, float, float, float);
+
+  static void drawEnclosingCube(Vec, Vec);
+
+  static int intersectType1(Vec, Vec, Vec, Vec, Vec&);
+  static int intersectType1WithTexture(Vec, Vec,
+				       Vec, Vec,
+				       Vec, Vec,
+				       Vec&, Vec&);
+
+  static int intersectType2(Vec, Vec, Vec&, Vec&);
+  static int intersectType2WithTexture(Vec, Vec,
+				       Vec&, Vec&,
+				       Vec&, Vec&);
+
+  static void convertFromGLImage(QImage&, int, int);
+
+  static QSize getImageSize(int, int);
+
+  static QList<Vec> line3d(Vec, Vec);
 };
 
 #endif

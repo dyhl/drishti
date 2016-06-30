@@ -10,14 +10,29 @@ VolumeFileManager::VolumeFileManager()
   m_startBlock = m_endBlock = 0;
   m_filenames.clear();
   m_volData = 0;
-  m_memmapped = true;
+  m_memmapped = false;
+  m_mcTimes = 0;
+  m_saveFreq = 50;
   reset();
 }
 
 VolumeFileManager::~VolumeFileManager() { reset(); }
 
-void VolumeFileManager::setMemMapped(bool b) { m_memmapped = b; }
+void VolumeFileManager::setMemMapped(bool b)
+{
+  m_memmapped = b;
+
+  if (m_volData)
+    delete [] m_volData;
+  m_volData = 0;
+
+  m_memChanged = false;
+  m_mcTimes = 0;
+}
+
 bool VolumeFileManager::isMemMapped() { return m_memmapped; }
+
+void VolumeFileManager::setMemChanged(bool b) { m_memChanged = b; }
 
 void
 VolumeFileManager::reset()
@@ -42,15 +57,15 @@ VolumeFileManager::reset()
   m_startBlock = m_endBlock = 0;
 
   if (m_volData)
-    {
-      delete [] m_volData;
-      m_volData = 0;
-    }
+    delete [] m_volData;
+  m_volData = 0;
 
   if (m_qfile.isOpen())
     m_qfile.close();
 
-  m_memmapped = true;
+  m_memmapped = false;
+  m_memChanged = false;
+  m_mcTimes = 0;
 }
 
 int VolumeFileManager::depth() { return m_depth; }
@@ -75,6 +90,11 @@ void VolumeFileManager::setVoxelType(int vt)
   if (m_voxelType == _Float) m_bytesPerVoxel = 4;
 }
 
+
+QStringList VolumeFileManager::filenameList() { return m_filenames; }
+QString VolumeFileManager::baseFilename() { return m_baseFilename; }
+int VolumeFileManager::headerSize() { return m_header; }
+int VolumeFileManager::slabSize() { return m_slabSize; }
 QString VolumeFileManager::fileName() { return m_filename; }
 
 void
@@ -102,6 +122,7 @@ VolumeFileManager::readVoxelType()
   if (m_qfile.isOpen())
     {
       m_qfile.read((char*)&vt, 1);
+      m_qfile.close();
     }
   else
     {
@@ -193,7 +214,7 @@ VolumeFileManager::createFile(bool writeHeader, bool writeData)
 	m_qfile.close();
 
       m_qfile.setFileName(m_filename);
-      m_qfile.open(QFile::ReadWrite);
+      m_qfile.open(QFile::WriteOnly);
 
       int nslices = qMin(m_slabSize, m_depth-ns*m_slabSize);      
       if (writeHeader)
@@ -217,6 +238,7 @@ VolumeFileManager::createFile(bool writeHeader, bool writeData)
 	    }
 	}
     }
+  m_qfile.close();
 
   progress.setValue(100);
 
@@ -258,6 +280,7 @@ VolumeFileManager::getSlice(int d)
     }
   m_qfile.seek((qint64)(m_header + (d-m_slabno*m_slabSize)*bps));
   m_qfile.read((char*)m_slice, bps);
+  m_qfile.close();
 
   return m_slice;
 }
@@ -367,6 +390,7 @@ VolumeFileManager::setSlice(int d, uchar *tmp)
     }
   m_qfile.seek((qint64)(m_header + (d-m_slabno*m_slabSize)*bps));
   m_qfile.write((char*)tmp, bps);
+  m_qfile.close();
 }
 
 void
@@ -483,6 +507,7 @@ VolumeFileManager::rawValue(int d, int w, int h)
 			(d-m_slabno*m_slabSize)*bps +
 			(w*m_height + h)*m_bytesPerVoxel));
   m_qfile.read((char*)m_slice, m_bytesPerVoxel);
+  m_qfile.close();
   return m_slice;
 }
 
@@ -602,6 +627,8 @@ VolumeFileManager::interpolatedRawValue(float dv, float wv, float hv)
   
   delete [] rv;
 
+  m_qfile.close();
+
   return m_slice;
 }
 
@@ -699,6 +726,8 @@ VolumeFileManager::readBlocks(int d)
       else
 	memset(m_block + (i-m_startBlock)*bps, 0, bps);
     }
+
+  m_qfile.close();
 }
 
 uchar*
@@ -790,7 +819,7 @@ VolumeFileManager::blockInterpolatedRawValue(float dv, float wv, float hv)
 void
 VolumeFileManager::saveMemFile()
 {
-  if (!m_memmapped)
+  if (!m_memChanged)
     return;
 
   uchar vt;
@@ -846,9 +875,14 @@ VolumeFileManager::saveMemFile()
 	  progress.setValue((int)(100*(float)d/(float)m_depth));
 	  qApp->processEvents();
 	}
+
+      m_qfile.close();
     }
 
   progress.setValue(100);
+
+  m_memChanged = false;
+  m_mcTimes = 0;
 }
 
 void
@@ -901,6 +935,9 @@ VolumeFileManager::loadMemFile()
       m_qfile.close(); 
     }
   progress.setValue(100);
+
+  m_memChanged = false;
+  m_mcTimes = 0;
 }
 
 void
@@ -944,6 +981,11 @@ VolumeFileManager::setSliceMem(int d, uchar *tmp)
   qint64 bps = m_width*m_height*m_bytesPerVoxel;
   memcpy(m_volData+d*bps, tmp, bps);
 
+//  m_memChanged = true;
+//  m_mcTimes++;
+//  if (m_mcTimes > m_saveFreq)
+//    saveMemFile();
+  
   //--------
   // save to file straight away
   QString pflnm = m_filename;
@@ -1002,6 +1044,11 @@ VolumeFileManager::setWidthSliceMem(int w, uchar *tmp)
     memcpy(m_volData + d*bps + w*m_height*m_bytesPerVoxel,
 	   tmp + d*m_height*m_bytesPerVoxel,
 	   m_height*m_bytesPerVoxel);
+
+  m_memChanged = true;
+  m_mcTimes++;
+  if (m_mcTimes > m_saveFreq)
+    saveMemFile();
 }
 
 uchar*
@@ -1046,6 +1093,11 @@ VolumeFileManager::setHeightSliceMem(int h, uchar *tmp)
 	       tmp + it*m_bytesPerVoxel,
 	       m_bytesPerVoxel);
     }
+
+  m_memChanged = true;
+  m_mcTimes++;
+  if (m_mcTimes > m_saveFreq)
+    saveMemFile();
 }
 
 uchar*
@@ -1075,4 +1127,88 @@ VolumeFileManager::rawValueMem(int d, int w, int h)
 	 m_bytesPerVoxel);
 
   return m_slice;
+}
+
+bool
+VolumeFileManager::setValueMem(int d, int w, int h, int val)
+{
+  if (!m_memmapped)
+    return false;
+
+  if (d < 0 || d >= m_depth ||
+      w < 0 || w >= m_width ||
+      h < 0 || h >= m_height)
+    return false;
+
+  if (m_bytesPerVoxel == 1)
+    m_volData[d*m_width*m_height + w*m_height + h] = val;
+  else if (m_bytesPerVoxel == 2)
+    ((ushort*)m_volData)[d*m_width*m_height + w*m_height + h] = val;
+  
+//  QMessageBox::information(0, "", QString("%1 %2 %3 : %4").\
+//			   arg(d).arg(w).arg(h).arg(m_volData[d*m_width*m_height + w*m_height + h]));
+
+  m_memChanged = true;
+  m_mcTimes++;
+  if (m_mcTimes > m_saveFreq)
+    saveMemFile();
+
+  return true;
+}
+
+void
+VolumeFileManager::saveBlock(int dmin, int dmax,
+			     int wmin, int wmax,
+			     int hmin, int hmax)
+{
+  if (!m_memmapped)
+    return;
+
+  if (dmin == -1 || wmin == -1 || hmin == -1 ||
+      dmax == -1 || wmax == -1 || hmax == -1)
+    {
+      if (m_qfile.isOpen()) m_qfile.close();
+      return;
+    }
+
+  dmin = qMax(0, dmin);
+  wmin = qMax(0, wmin);
+  hmin = qMax(0, hmin);
+
+  dmax = qMin(m_depth-1, dmax);
+  wmax = qMin(m_width-1, wmax);
+  hmax = qMin(m_height-1, hmax);
+
+  int hbts = (hmax-hmin+1)*m_bytesPerVoxel;
+
+  qint64 bps = m_width*m_height*m_bytesPerVoxel;
+  QString pflnm = m_filename;
+
+  for(int d=dmin; d<=dmax; d++)
+    {
+      m_slabno = d/m_slabSize;
+      if (m_slabno < m_filenames.count())
+	m_filename = m_filenames[m_slabno];
+      else
+	m_filename = m_baseFilename +
+	  QString(".%1").arg(m_slabno+1, 3, 10, QChar('0'));
+      
+      if (pflnm != m_filename ||
+	  !m_qfile.isOpen() ||
+	  !m_qfile.isWritable())
+	{
+	  if (m_qfile.isOpen()) m_qfile.close();
+	  m_qfile.setFileName(m_filename);
+	  m_qfile.open(QFile::ReadWrite);
+	}
+      for(int w=wmin; w<=wmax; w++)
+	{
+	  m_qfile.seek((qint64)(m_header +
+				(d-m_slabno*m_slabSize)*bps +
+				(w*m_height + hmin)*m_bytesPerVoxel));
+	  m_qfile.write((char*)(m_volData + d*bps +
+				(w*m_height + hmin)*m_bytesPerVoxel),
+			hbts);
+	}      
+    }
 }

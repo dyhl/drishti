@@ -99,7 +99,7 @@ uchar* Global::tagColors()
   if (!m_tagColors)
     {
       m_tagColors = new uchar[1024];
-      memset(m_tagColors, 0, 1024);
+      memset(m_tagColors, 255, 1024);
     }
   return m_tagColors;
 }
@@ -108,7 +108,7 @@ void Global::setTagColors(uchar *colors)
   if (!m_tagColors)
     {
       m_tagColors = new uchar[1024];
-      memset(m_tagColors, 0, 1024);
+      memset(m_tagColors, 255, 1024);
     }
   memcpy(m_tagColors, colors, 1024);
 }
@@ -177,4 +177,154 @@ void Global::setCopyPrev(bool l) { m_copyPrev = l; }
 int Global::m_smooth = 1;
 int Global::smooth() { return m_smooth; }
 void Global::setSmooth(int d) { m_smooth = d; }
+
+int Global::m_thickness = 1;
+int Global::thickness() { return m_thickness; }
+void Global::setThickness(int d) { m_thickness = d; }
+
+bool Global::m_closed = true;
+bool Global::closed() { return m_closed; }
+void Global::setClosed(bool b) { m_closed = b; }
+
+int Global::m_selpres = 15;
+int Global::selectionPrecision() { return m_selpres; }
+void Global::setSelectionPrecision(int s) { m_selpres = s; }
+
+Vec Global::m_voxelScaling = Vec(1,1,1);
+Vec Global::voxelScaling() { return m_voxelScaling; }
+void Global::setVoxelScaling(Vec v) { m_voxelScaling = v; }
+
+QString Global::m_voxelUnit = "";
+QString Global::voxelUnit() { return m_voxelUnit; }
+void Global::setVoxelUnit(QString s) { m_voxelUnit = s; }
+
+GLuint Global::m_spriteTexture = 0;
+void Global::removeSpriteTexture()
+{
+  if (m_spriteTexture)
+    glDeleteTextures( 1, &m_spriteTexture );
+  m_spriteTexture = 0;
+}
+GLuint Global::spriteTexture()
+{
+  if (m_spriteTexture)
+    return m_spriteTexture;
+
+  glGenTextures( 1, &m_spriteTexture );
+
+//----------------------------------------
+//--- filled circle sprite ---
+  int texsize = 64;
+  float md = texsize/2-0.5;
+  uchar *thetexture = new uchar[2*texsize*texsize];
+  for (int x=0; x < texsize; x++) {
+    for (int y=0; y < texsize; y++) {
+      int index = x*texsize + y;
+      float a = (x-md);
+      float b = (y-md);
+      float r2 = sqrt(a*a + b*b)/md;
+      r2 = 1.0 - qBound(0.0f, r2, 1.0f);
+      r2 = qBound(0.0f, 1.5f*r2, 1.0f);
+      r2 *= 255;
+      thetexture[2*index] = r2;
+      thetexture[2*index+1] = r2;
+    }
+  }
+//----------------------------------------
+
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, m_spriteTexture);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE_ALPHA,
+	       texsize, texsize, 0,
+	       GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE,
+	       thetexture);
+  glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+  delete [] thetexture;
+
+
+  return m_spriteTexture;
+}
+
+GLuint Global::m_hollowSpriteTexture = 0;
+void Global::removeHollowSpriteTexture()
+{
+  if (m_hollowSpriteTexture)
+    glDeleteTextures( 1, &m_hollowSpriteTexture );
+  m_hollowSpriteTexture = 0;
+}
+GLuint Global::hollowSpriteTexture()
+{
+  if (m_hollowSpriteTexture)
+    return m_hollowSpriteTexture;
+
+  glGenTextures( 1, &m_hollowSpriteTexture );
+
+//----------------------------------------
+//--- hollow circle sprite ---
+  int texsize = 64;
+  int t2 = texsize/2;
+  QRadialGradient rg(t2, t2, t2-1, t2, t2);
+  rg.setColorAt(0.0, Qt::white);
+  rg.setColorAt(1.0, Qt::black);
+
+  QImage texImage(texsize, texsize, QImage::Format_ARGB32);
+  texImage.fill(0);
+  QPainter p(&texImage);
+  p.setBrush(QBrush(rg));
+  p.setPen(Qt::transparent);
+  p.drawEllipse(0, 0, texsize, texsize);
+
+  uchar *thetexture = new uchar[2*texsize*texsize];
+  const uchar *bits = texImage.bits();
+  //const uchar *bits = info.bits();
+  for(int i=0; i<texsize*texsize; i++)
+    {
+      uchar lum = 255;
+      float a = (float)bits[4*i+2]/255.0f;
+      a = 1-a;
+      
+      if (a < 0.8 || a >= 1.0)
+	{
+	  a = 0;
+	  lum = 0;
+	}
+      else
+	{
+	  lum *= 1-fabs(a-0.8f)/0.2f;
+	  a = 0.9f;
+	}
+      
+      a *= 255;
+      
+      thetexture[2*i] = lum;
+      thetexture[2*i+1] = a;
+    }
+//----------------------------------------
+
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, m_hollowSpriteTexture);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE_ALPHA,
+	       texsize, texsize, 0,
+	       GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE,
+	       thetexture);
+  glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+  delete [] thetexture;
+
+
+  return m_hollowSpriteTexture;
+}
 

@@ -93,6 +93,7 @@ class MainWindow : public QMainWindow
    void on_actionRedCyan_triggered();
    void on_actionCrosseye_triggered();
    void on_actionFor3DTV_triggered();
+   void on_actionMIP_triggered();
    void on_actionStatusBar_triggered();
    void on_actionMouse_Grab_triggered();
    void on_actionSwitch_To1D_triggered();
@@ -165,7 +166,8 @@ class MainWindow : public QMainWindow
 			 int, int, QString, QString, QString);
    void updateParameters(bool, bool, Vec, QString,
 			 int, int, QString, QString, QString,
-			 int, bool, bool, float, bool, bool);
+			 int, bool, bool, float, bool, bool,
+			 float, float);
    void changeHistogram(int);
    void resetFlipImage();
    void switchBB();
