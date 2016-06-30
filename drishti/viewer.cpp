@@ -3353,8 +3353,10 @@ void
 Viewer::keyPressEvent(QKeyEvent *event)
 {
   // Toggle FullScreen - hide menubar on fullscreen
-  if (event->key() == Qt::Key_Return &&
-      event->modifiers() & Qt::AltModifier)
+  if (event->key() == Qt::Key_Return)
+  {
+	  // Alt + Enter/Return
+      if (event->modifiers() & Qt::AltModifier)
     {
       QWidget *mw = MainWindowUI::mainWindowUI()->menubar->parentWidget();
       mw->setWindowState(mw->windowState() ^ Qt::WindowFullScreen);
