@@ -53,8 +53,9 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   QMainWindow(parent)
 {
   ui.setupUi(this);
-  ui.statusbar->setEnabled(true);
-  ui.statusbar->setSizeGripEnabled(true);
+//  ui.statusbar->setEnabled(true);
+//  ui.statusbar->setSizeGripEnabled(true);
+  ui.statusbar->hide();
 
   setWindowIcon(QPixmap(":/images/drishti_paint_32.png"));
   setWindowTitle(QString("DrishtiPaint v") + QString(DRISHTI_VERSION));
@@ -2002,6 +2003,14 @@ DrishtiPaint::connectImageWidget()
 
   connect(m_imageWidget, SIGNAL(saveMask()),
 	  m_volume, SLOT(saveIntermediateResults()));
+
+  connect(m_imageWidget, SIGNAL(shrinkwrap(Vec, Vec, int, bool, int,
+					   bool, int, int, int, int)),
+	  this, SLOT(shrinkwrap(Vec, Vec, int, bool, int,
+				bool, int, int, int, int)));
+
+  connect(m_imageWidget, SIGNAL(connectedRegion(int,int,int,Vec,Vec,int,int)),
+	  this, SLOT(connectedRegion(int,int,int,Vec,Vec,int,int)));
 }
 
 void
@@ -2070,8 +2079,9 @@ DrishtiPaint::connectViewerMenu()
   connect(viewerUi.sketchPad, SIGNAL(clicked(bool)),
 	  m_viewer, SLOT(showSketchPad(bool)));
 
-  connect(viewerUi.useMask, SIGNAL(clicked(bool)),
-	  m_viewer, SLOT(setUseMask(bool)));
+  viewerUi.useMask->hide();
+//  connect(viewerUi.useMask, SIGNAL(clicked(bool)),
+//	  m_viewer, SLOT(setUseMask(bool)));
 
   m_viewer->setPointScaling(viewerUi.ptscaling->value());
   m_viewer->setPointSize(viewerUi.ptsize->value());
@@ -2115,8 +2125,8 @@ DrishtiPaint::setupLightParameters()
   m_viewSpec = new PopUpSlider(m_viewer, Qt::Horizontal);
   m_viewEdge = new PopUpSlider(m_viewer, Qt::Horizontal);
   m_viewShadow = new PopUpSlider(m_viewer, Qt::Horizontal);
-  m_shadowX = new PopUpSlider(m_viewer, Qt::Horizontal);
-  m_shadowY = new PopUpSlider(m_viewer, Qt::Horizontal);
+//  m_shadowX = new PopUpSlider(m_viewer, Qt::Horizontal);
+//  m_shadowY = new PopUpSlider(m_viewer, Qt::Horizontal);
   m_shadowButton = new QPushButton("Shadow Color");
   m_edgeButton = new QPushButton("Edge Color");
   m_bgButton = new QPushButton("Background Color");
@@ -2124,8 +2134,8 @@ DrishtiPaint::setupLightParameters()
   m_viewSpec->setText("Specular");
   m_viewEdge->setText("Edges");
   m_viewShadow->setText("Shadow");
-  m_shadowX->setText("Shadow X");
-  m_shadowY->setText("Shadow Y");
+//  m_shadowX->setText("Shadow X");
+//  m_shadowY->setText("Shadow Y");
 
   m_viewSpec->setRange(0, 10);
   m_viewSpec->setValue(10);
@@ -2133,10 +2143,10 @@ DrishtiPaint::setupLightParameters()
   m_viewEdge->setValue(3);
   m_viewShadow->setRange(0, 20);
   m_viewShadow->setValue(10);
-  m_shadowX->setRange(-5, 5);
-  m_shadowX->setValue(0);
-  m_shadowY->setRange(-5, 5);
-  m_shadowY->setValue(0);
+//  m_shadowX->setRange(-5, 5);
+//  m_shadowX->setValue(0);
+//  m_shadowY->setRange(-5, 5);
+//  m_shadowY->setValue(0);
 
   QSpacerItem *spitem0 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
   QSpacerItem *spitem1 = new QSpacerItem(5,5,QSizePolicy::Minimum, QSizePolicy::Fixed);
@@ -2150,8 +2160,8 @@ DrishtiPaint::setupLightParameters()
   viewerUi.popupLight->addItem(spitem1);
   viewerUi.popupLight->addWidget(m_viewShadow);
   viewerUi.popupLight->addWidget(m_shadowButton);
-  viewerUi.popupLight->addWidget(m_shadowX);
-  viewerUi.popupLight->addWidget(m_shadowY);
+//  viewerUi.popupLight->addWidget(m_shadowX);
+//  viewerUi.popupLight->addWidget(m_shadowY);
   viewerUi.popupLight->addItem(spitem2);
   viewerUi.popupLight->addWidget(m_bgButton);
 
@@ -2161,10 +2171,10 @@ DrishtiPaint::setupLightParameters()
 	  m_viewer, SLOT(setEdge(int)));
   connect(m_viewShadow, SIGNAL(valueChanged(int)),
 	  m_viewer, SLOT(setShadow(int)));
-  connect(m_shadowX, SIGNAL(valueChanged(int)),
-	  m_viewer, SLOT(setShadowOffsetX(int)));
-  connect(m_shadowY, SIGNAL(valueChanged(int)),
-	  m_viewer, SLOT(setShadowOffsetY(int)));
+//  connect(m_shadowX, SIGNAL(valueChanged(int)),
+//	  m_viewer, SLOT(setShadowOffsetX(int)));
+//  connect(m_shadowY, SIGNAL(valueChanged(int)),
+//	  m_viewer, SLOT(setShadowOffsetY(int)));
 
   connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
 	  m_viewSpec, SLOT(setVisible(bool)));
@@ -2172,10 +2182,10 @@ DrishtiPaint::setupLightParameters()
 	  m_viewEdge, SLOT(setVisible(bool)));
   connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
 	  m_viewShadow, SLOT(setVisible(bool)));
-  connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
-	  m_shadowX, SLOT(setVisible(bool)));
-  connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
-	  m_shadowY, SLOT(setVisible(bool)));
+//  connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
+//	  m_shadowX, SLOT(setVisible(bool)));
+//  connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
+//	  m_shadowY, SLOT(setVisible(bool)));
   connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
 	  m_shadowButton, SLOT(setVisible(bool)));
   connect(viewerUi.lightBox, SIGNAL(clicked(bool)),
@@ -2508,6 +2518,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
   bool saveImageData = true;
   int shiftVox = 128;
   float scaleVox = 0.5;
+  int tagWidth = 10;
 
   //----------------
   int extractType = 1; // extract using tag
@@ -2556,28 +2567,41 @@ DrishtiPaint::on_actionExtractTag_triggered()
       extractType = 9;
       bool ok;
       QString tagstr = QInputDialog::getText(0, "Merge Tag values with Tomogram",
-					     "Scale and shift tomogram values before merging tag values.\nSpecify two numbers - for e.g. 0.5 128 -> this means 0.5*tomoval + 128 + tagval\nFirst value is scaling factor between 0.0 and 1.0, and second value is shift factor between 0 and 255.\n1.0 0 -> means no scaling and shifting of tomogram values",
+					     "Scale and shift non tagged tomogram values before merging tag values.\nSpecify two numbers - for e.g. 0.5 128 -> this means 0.5*tomoval + 128\nFirst value is scaling factor between 0.0 and 1.0, and second value is shift factor between 0 and 255.\n1.0 0 -> means no scaling and shifting of tomogram values",
 					     QLineEdit::Normal,
 					     "0.5 128",
 					     &ok);
       if (ok && !tagstr.isEmpty())
 	{
 	  QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
-	  if (tglist.count() == 2)
+	  if (tglist.count() == 3)
 	    {
 	      scaleVox = tglist[0].toFloat();
 	      shiftVox = tglist[1].toInt();
 	    }
+	}
+
+      tagstr = QInputDialog::getText(0, "Merge Tag values with Tomogram",
+				     "Sepcify tagwidth\nValues for voxels that are tagged will be scaled according to tagwidth and shifted by tag value.\nFirst minimum and maximum voxel values are calculated for the voxels that are tagged.\nThen appropriate scaling factor is calculated for every tag so that the min and max voxel values fit within the given tagwidth interval.\nThe voxel values are then shifted by the individual tag value.\nThis results in appropriate shifting of tagged voxel values while maintaining some grayscale information depending on the size tagwidth.\nfor e.g. value of 10 will give : tag + tagwidth*(voxval-minvox)/(maxvox-minvox)",
+				     QLineEdit::Normal,
+				     QString("%1").arg(tagWidth),
+				     &ok);
+      if (ok && !tagstr.isEmpty())
+	{
+	  QStringList tglist = tagstr.split(" ", QString::SkipEmptyParts);
+	  if (tglist.count() == 1)
+	    tagWidth = tglist[0].toInt();
 	}
     }
   //----------------
 
   //----------------
   uchar outsideVal = 0;
-  outsideVal = QInputDialog::getInt(0,
-				    "Outside value",
-				    "Set outside value to",
-				    0, 0, 255, 1);
+  if (saveImageData && extractType != 9)
+    outsideVal = QInputDialog::getInt(0,
+				      "Outside value",
+				      "Set outside value to",
+				      0, 0, 255, 1);
   //----------------
 
 
@@ -2635,6 +2659,34 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
   //----------------------------------
 
+
+  //----------------------------------
+  // find min and max of voxel values for each tag
+  uchar vtmin[256];
+  uchar vtmax[256];
+  float vtdif[256];
+  memset(vtmin, 255, 256);
+  memset(vtmax, 0, 256);
+  memset(vtdif, 1, 256);
+  if (extractType == 9)
+    {
+      uchar *volData = m_volume->memVolDataPtr();
+      uchar *maskData = m_volume->memMaskDataPtr();
+      for(int d=minDSlice; d<=maxDSlice; d++)
+      for(int w=minWSlice; w<=maxWSlice; w++)
+      for(int h=minHSlice; h<=maxHSlice; h++)
+	{
+	  uchar vox = volData[d*width*height + w*height + h];
+	  uchar mtag = maskData[d*width*height + w*height + h];
+	  vtmin[mtag] = qMin(vtmin[mtag], vox);
+	  vtmax[mtag] = qMax(vtmax[mtag], vox);
+	}
+      for (int u=0; u<256; u++)
+	vtdif[u] = vtmax[u]-vtmin[u];
+    }
+  //----------------------------------
+
+  
   bool reloadData = false;
   uchar *curveMask = 0;
   try
@@ -2752,7 +2804,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 		  }
 	    }
 	}
-      else // extractType == 7 or 8
+      else
 	{
 	  if (extractType == 7 || extractType == 9)
 	    memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytes);
@@ -2843,13 +2895,30 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	    {
 	      // scale and shift tomogram
 	      // clamp between (0,255)
-	      for(int i=0; i<twidth*theight; i++)
-		slice[i] = qMin(qMax((int)(scaleVox*slice[i] + shiftVox), 0), 255);
+//	      for(int i=0; i<twidth*theight; i++)
+//		slice[i] = qMin(qMax((int)(scaleVox*slice[i] + shiftVox), 0), 255);
 	      // merge in tag values
-	      for(int i=0; i<twidth*theight; i++)
+	      if (tag[0] == -1)
 		{
-		  if (raw[i] != 0)
-		    slice[i] = raw[i];
+		  //if (raw[i] != 0)
+		  //  slice[i] = raw[i];
+		  for(int i=0; i<twidth*theight; i++)
+		    {
+		      if (raw[i] != 0)
+			slice[i] = raw[i] + tagWidth*(float)(slice[i]-vtmin[raw[i]])/vtdif[raw[i]];
+		      else
+			slice[i] = qMin(qMax((int)(scaleVox*slice[i] + shiftVox), 0), 255);
+		    }
+		}
+	      else
+		{
+		  for(int i=0; i<twidth*theight; i++)
+		    {
+		      if (tag.contains(raw[i]))
+			slice[i] = raw[i] + tagWidth*(float)(slice[i]-vtmin[raw[i]])/vtdif[raw[i]];
+		      else
+			slice[i] = qMin(qMax((int)(scaleVox*slice[i] + shiftVox), 0), 255);
+		    }
 		}
 	    }
 	  tFile.setSlice(slc, slice);
