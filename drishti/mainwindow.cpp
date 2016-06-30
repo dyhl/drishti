@@ -120,7 +120,11 @@ MainWindow::MainWindow(QWidget *parent) :
 
   Global::setStatusBar(ui.statusBar, ui.actionStatusBar);
 
-  ui.statusBar->setEnabled(true);
+  if (presentMode) {
+    ui.statusBar->setEnabled(false);
+  } else {
+    ui.statusBar->setEnabled(true);
+  }
   ui.statusBar->setSizeGripEnabled(true);
   ui.statusBar->addWidget(Global::progressBar());
 
@@ -150,14 +154,21 @@ MainWindow::MainWindow(QWidget *parent) :
   ui.actionSave_Movie->setEnabled(false);
 #endif
 
-  ui.actionStatusBar->setChecked(true);
-  ui.actionBoundingBox->setChecked(true);
+  if (presentMode) {
+    ui.actionStatusBar->setChecked(false);
+  } else {
+    ui.actionStatusBar->setChecked(true);
+  }
   ui.actionAxes->setChecked(false);
   ui.actionVisibility->setChecked(true);
   ui.actionNormal->setChecked(true);
   ui.actionLow->setChecked(false);
   ui.actionVeryLow->setChecked(false);
-  ui.actionBottom_Text->setChecked(Global::bottomText());
+  if (presentMode) {
+    ui.actionBottom_Text->setChecked(false);
+  } else {
+    ui.actionBottom_Text->setChecked(Global::bottomText());
+  }
   ui.actionDepthcue->setChecked(Global::depthcue());
   ui.actionUse_dragvolume->setChecked(Global::useDragVolume());
   ui.actionUse_dragvolumeforshadows->setChecked(Global::useDragVolumeforShadows());
@@ -198,6 +209,9 @@ MainWindow::MainWindow(QWidget *parent) :
   splitter->addWidget(m_tfManager);
   splitter->addWidget(m_tfEditor);
   m_dockTF->setWidget(splitter);
+  if (presentMode) {
+    m_dockTF->hide(); // start with dock hidden
+  }
   //----------------------------------------------------------
 
   //----------------------------------------------------------
